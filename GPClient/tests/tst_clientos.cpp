@@ -15,6 +15,11 @@ private slots:
         QCOMPARE(clientOsOptions(), (QStringList{"Linux", "Windows", "Mac"}));
     }
 
+    void defaultsToLinux()
+    {
+        QCOMPARE(defaultClientOs(), QString("Linux"));
+    }
+
     void selectsSavedValue_data()
     {
         QTest::addColumn<QString>("saved");

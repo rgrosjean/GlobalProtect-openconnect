@@ -13,6 +13,7 @@
 #include <keychain.h>
 
 #include "gphelper.h"
+#include "clientos.h"
 
 using namespace QKeychain;
 
@@ -51,7 +52,7 @@ QNetworkReply* gpclient::helper::createRequest(QString url, QByteArray params)
 
 QString gpclient::helper::clientos()
 {
-    return settings::get("clientos", "Linux").toString();
+    return settings::get("clientos", defaultClientOs()).toString();
 }
 
 QString gpclient::helper::clientVersion()

@@ -129,7 +129,7 @@ void GPClient::showAbout()
 
 void GPClient::onSettingsButtonClicked()
 {
-    settingsDialog->setClientos(settings::get("clientos", "Linux").toString());
+    settingsDialog->setClientos(clientos());
     settingsDialog->setOsVersion(settings::get("os-version", QSysInfo::prettyProductName()).toString());
     settingsDialog->show();
 }
@@ -413,7 +413,7 @@ void GPClient::doConnect()
 // Login to the portal interface to get the portal config and preferred gateway
 void GPClient::portalLogin()
 {
-    auto *portalAuth = new PortalAuthenticator(portal(), settings::get("clientos", "Linux").toString());
+    auto *portalAuth = new PortalAuthenticator(portal(), clientos());
 
     connect(portalAuth, &PortalAuthenticator::success, [this, portalAuth](const PortalConfigResponse response, const QString region) {
         this->onPortalSuccess(response, region);
@@ -508,7 +508,7 @@ void GPClient::gatewayLogin()
     }
 
     GatewayAuthenticatorParams params = GatewayAuthenticatorParams::fromPortalConfigResponse(portalConfig);
-    params.setClientos(settings::get("clientos", "Linux").toString());
+    params.setClientos(clientos());
 
     GatewayAuthenticator *gatewayAuth;
     gatewayAuth = new GatewayAuthenticator(currentGateway().address(), params);
