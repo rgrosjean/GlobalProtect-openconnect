@@ -16,6 +16,7 @@ public:
     inner = new com::yuezk::qt::GPService("com.yuezk.qt.GPService", "/", QDBusConnection::systemBus(), this);
     QObject::connect(inner, &com::yuezk::qt::GPService::connected, this, &VpnDbus::connected);
     QObject::connect(inner, &com::yuezk::qt::GPService::disconnected, this, &VpnDbus::disconnected);
+    QObject::connect(inner, &com::yuezk::qt::GPService::reconnecting, this, &VpnDbus::reconnecting);
     QObject::connect(inner, &com::yuezk::qt::GPService::error, this, &VpnDbus::error);
     QObject::connect(inner, &com::yuezk::qt::GPService::logAvailable, this, &VpnDbus::logAvailable);
   }
@@ -27,6 +28,7 @@ public:
 signals: // SIGNALS
   void connected();
   void disconnected();
+    void reconnecting();
   void error(QString errorMessage);
   void logAvailable(QString log);
 };

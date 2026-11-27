@@ -1,9 +1,11 @@
 #include <QtCore/QObject>
 #include <QtCore/QString>
 #include <QtCore/QStandardPaths>
+#include <QtCore/QDir>
 #include <plog/Log.h>
 #include <plog/Init.h>
 #include <plog/Appenders/ColorConsoleAppender.h>
+#include <plog/Appenders/RollingFileAppender.h>
 #include <plog/Formatters/TxtFormatter.h>
 
 #include "singleapplication.h"
@@ -20,9 +22,20 @@
 int main(int argc, char *argv[])
 {
     plog::ColorConsoleAppender<plog::TxtFormatter> consoleAppender(plog::streamStdErr);
-    plog::init(plog::debug, &consoleAppender);
+
+    // The same log also goes to a rotating file (3 files of 1 MB each), so the
+    // openconnect messages relayed by the service are kept when the client is started
+    // from the desktop. No QApplication exists yet, so the path uses the generic cache
+    // directory rather than one derived from the application name.
+    const QString logDir = QStandardPaths::writableLocation(QStandardPaths::GenericCacheLocation) + "/gpclient";
+    QDir().mkpath(logDir);
+    const std::string logFile = QString(logDir + "/gpclient.log").toStdString();
+    plog::RollingFileAppender<plog::TxtFormatter> fileAppender(logFile.c_str(), 1000 * 1000, 3);
+
+    plog::init(plog::debug, &consoleAppender).addAppender(&fileAppender);
 
     LOGI << "GlobalProtect started, version: " << VERSION;
+    LOGI << "Writing the log to " << logFile;
 
     auto port = QString::fromLocal8Bit(qgetenv(ENV_CDP_PORT));
     auto hidpiSupport = QString::fromLocal8Bit(qgetenv(QT_AUTO_SCREEN_SCALE_FACTOR));

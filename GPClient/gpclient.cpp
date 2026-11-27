@@ -41,6 +41,7 @@ GPClient::GPClient(QWidget *parent, IVpn *vpn)
     QObject *ov = dynamic_cast<QObject*>(vpn);
     connect(ov, SIGNAL(connected()), this, SLOT(onVPNConnected()));
     connect(ov, SIGNAL(disconnected()), this, SLOT(onVPNDisconnected()));
+    connect(ov, SIGNAL(reconnecting()), this, SLOT(onVPNReconnecting()));
     connect(ov, SIGNAL(error(QString)), this, SLOT(onVPNError(QString)));
     connect(ov, SIGNAL(logAvailable(QString)), this, SLOT(onVPNLogAvailable(QString)));
 
@@ -192,6 +193,9 @@ void GPClient::initVpnStatus() {
         updateConnectionStatus(ConnectionState::Connected);
     } else if (status == 3) {
         updateConnectionStatus(ConnectionState::Disconnecting);
+    } else if (status == 4) {
+        // The Tunnel was lost and openconnect is retrying.
+        updateConnectionStatus(ConnectionState::Reconnecting);
     } else {
         updateConnectionStatus(ConnectionState::Disconnected);
     }
@@ -252,7 +256,8 @@ void GPClient::updateConnectionStatus(ConnectionState newState)
     state = newState;
     if (state == ConnectionState::Connected && !tunnelStartedAt.isValid()) {
         tunnelStartedAt = QDateTime::currentDateTime();
-    } else if (state == ConnectionState::Disconnected) {
+    } else if (state == ConnectionState::Disconnected || state == ConnectionState::Reconnecting) {
+        // A lost Tunnel does not count as connected time: the timer restarts on recovery.
         tunnelStartedAt = QDateTime();
     }
 
@@ -282,7 +287,7 @@ void GPClient::updateConnectionStatus(ConnectionState newState)
     systemTrayIcon->setIcon(shieldIcon);
     connectAction->setText(shown.buttonText);
     connectAction->setEnabled(shown.buttonEnabled);
-    gatewaySwitchMenu->setEnabled(shown.buttonEnabled);
+    gatewaySwitchMenu->setEnabled(gatewayPickFor(state) != GatewayPick::Ignore);
     clearAction->setEnabled(idle);
     resetMenuAction->setEnabled(idle);
 }
@@ -400,7 +405,7 @@ void GPClient::doConnect()
             LOGI << "Start portal login...";
             portalLogin();
         }
-    } else if (state == ConnectionState::Connected) {
+    } else if (state == ConnectionState::Connected || state == ConnectionState::Reconnecting) {
         LOGI << "Start disconnecting the VPN...";
 
         updateConnectionStatus(ConnectionState::Disconnecting);
@@ -671,6 +676,13 @@ void GPClient::onVPNDisconnected()
     }
 
     updateConnectionStatus(ConnectionState::Disconnected);
+}
+
+// The Tunnel was lost and openconnect is retrying. It ends in connected() when the
+// Tunnel recovers, or in disconnected() when openconnect gives up and exits.
+void GPClient::onVPNReconnecting()
+{
+    updateUnlessSwitching(ConnectionState::Reconnecting);
 }
 
 // The old Tunnel never reported going down during a Gateway switch: show what the

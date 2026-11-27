@@ -31,6 +31,8 @@ qt6_add_dbus_adaptor(
 add_executable(gpservice
     gpservice.h
     gpservice.cpp
+    tunnelevent.h
+    tunnelevent.cpp
     main.cpp
     ${gpservice_GENERATED_SOURCES}
 )
@@ -87,4 +89,8 @@ if("$ENV{DEBIAN_PACKAGE}")
     install(FILES "${CMAKE_CURRENT_BINARY_DIR}/systemd/gpservice.service" DESTINATION /lib/systemd/system)
 else()
     install(FILES "${CMAKE_CURRENT_BINARY_DIR}/systemd/gpservice.service" DESTINATION lib/systemd/system)
+endif()
+
+if (BUILD_TESTING)
+    add_subdirectory(tests)
 endif()

@@ -269,8 +269,8 @@ void gpclient::helper::settings::save(const QString &key, const QVariant &value)
 
 void gpclient::helper::settings::clear()
 {
-    QStringList keys = _settings->allKeys();
-    for (const auto &key : qAsConst(keys)) {
+    const QStringList keys = _settings->allKeys();
+    for (const auto &key : keys) {
         if (!reservedKeys.contains(key)) {
             _settings->remove(key);
         }

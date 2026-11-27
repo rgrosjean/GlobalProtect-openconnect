@@ -8,6 +8,7 @@
 #include "INIReader.h"
 #include "gpservice.h"
 #include "gpserviceadaptor.h"
+#include "tunnelevent.h"
 
 GPService::GPService(QObject *parent)
     : QObject(parent)
@@ -22,8 +23,11 @@ GPService::GPService(QObject *parent)
     // Setup the openconnect process
     QObject::connect(openconnect, &QProcess::started, this, &GPService::onProcessStarted);
     QObject::connect(openconnect, &QProcess::errorOccurred, this, &GPService::onProcessError);
-    QObject::connect(openconnect, &QProcess::readyReadStandardOutput, this, &GPService::onProcessStdout);
-    QObject::connect(openconnect, &QProcess::readyReadStandardError, this, &GPService::onProcessStderr);
+    // openconnect prints errors, such as a dead peer, on stderr and progress on stdout.
+    // One merged channel keeps them in the order they were printed, so a recovery
+    // message is never read before the loss it follows.
+    openconnect->setProcessChannelMode(QProcess::MergedChannels);
+    QObject::connect(openconnect, &QProcess::readyReadStandardOutput, this, &GPService::onProcessOutput);
     QObject::connect(openconnect, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this, &GPService::onProcessFinished);
 }
 
@@ -194,26 +198,57 @@ void GPService::onProcessError(QProcess::ProcessError error)
     emit disconnected();
 }
 
-void GPService::onProcessStdout()
+// Reads whole lines only: a line split across two reads stays buffered until its
+// end arrives, so a message is never matched in two halves.
+void GPService::onProcessOutput()
 {
-    QString output = openconnect->readAllStandardOutput();
-
-    log(output);
-    if (output.indexOf("Connected as") >= 0 ||
-        output.indexOf("Configured as") >= 0 ||
-        output.indexOf("Configurado como") >= 0) {
-        vpnStatus = GPService::VpnConnected;
-        emit connected();
+    while (openconnect->canReadLine()) {
+        const QString line = QString::fromLocal8Bit(openconnect->readLine()).trimmed();
+        if (!line.isEmpty()) {
+            log(line);
+            applyTunnelEvent(line);
+        }
     }
 }
 
-void GPService::onProcessStderr()
+// Moves the status along what an openconnect line says about the Tunnel.
+// A lost Tunnel is only reported once it was up, and a recovery only after a loss:
+// the same messages are printed while the Tunnel first comes up.
+void GPService::applyTunnelEvent(const QString &line)
 {
-    log(openconnect->readAllStandardError());
+    switch (tunnelEventFor(line)) {
+    case TunnelEvent::Configured:
+        if (vpnStatus == GPService::VpnConnecting || vpnStatus == GPService::VpnReconnecting) {
+            vpnStatus = GPService::VpnConnected;
+            emit connected();
+        }
+        break;
+    case TunnelEvent::Recovered:
+        if (vpnStatus == GPService::VpnReconnecting) {
+            log("The Tunnel is back up.");
+            vpnStatus = GPService::VpnConnected;
+            emit connected();
+        }
+        break;
+    case TunnelEvent::Lost:
+        if (vpnStatus == GPService::VpnConnected) {
+            log("The Tunnel was lost, openconnect is reconnecting.");
+            vpnStatus = GPService::VpnReconnecting;
+            emit reconnecting();
+        }
+        break;
+    case TunnelEvent::None:
+        break;
+    }
 }
 
 void GPService::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatus)
 {
+    // A last line without a newline.
+    const QString rest = QString::fromLocal8Bit(openconnect->readAll()).trimmed();
+    if (!rest.isEmpty()) {
+        log(rest);
+    }
     log("Openconnect process exited with code " + QString::number(exitCode) + " and exit status " + QVariant::fromValue(exitStatus).toString());
     vpnStatus = GPService::VpnNotConnected;
     emit disconnected();

@@ -33,6 +33,9 @@ ConnectionView presentConnection(ConnectionState state, qint64 tunnelSeconds)
         return inProgress("Disconnecting...", VisibleView::Connected);
     case ConnectionState::SwitchingGateway:
         return inProgress("Switching Gateway...", VisibleView::Connected);
+    case ConnectionState::Reconnecting:
+        // Disconnect stays available, so the user can stop openconnect's retries.
+        return { "Reconnecting...", Shield::InProgress, "Disconnect", true, VisibleView::Connected, {} };
     case ConnectionState::Disconnected:
         break;
     }
@@ -88,7 +91,9 @@ GPGateway switchTargetAfterPortalLogin(const QList<GPGateway> &portalConfigGatew
 
 bool switchTimeoutRestoresPreviousGateway(ConnectionState stateAfterTimeout)
 {
-    return stateAfterTimeout == ConnectionState::Connected || stateAfterTimeout == ConnectionState::Connecting;
+    return stateAfterTimeout == ConnectionState::Connected
+        || stateAfterTimeout == ConnectionState::Connecting
+        || stateAfterTimeout == ConnectionState::Reconnecting;
 }
 
 QString shieldResource(Shield shield)

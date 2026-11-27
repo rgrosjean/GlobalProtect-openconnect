@@ -56,6 +56,9 @@ private slots:
             << "Disconnecting..." << Shield::InProgress << "Disconnecting..." << false << VisibleView::Connected;
         QTest::newRow("SwitchingGateway") << ConnectionState::SwitchingGateway
             << "Switching Gateway..." << Shield::InProgress << "Switching Gateway..." << false << VisibleView::Connected;
+        // openconnect retries a lost Tunnel; the user can still stop it.
+        QTest::newRow("Reconnecting") << ConnectionState::Reconnecting
+            << "Reconnecting..." << Shield::InProgress << "Disconnect" << true << VisibleView::Connected;
     }
 
     void showsState()
@@ -100,6 +103,8 @@ private slots:
         QVERIFY(presentConnection(ConnectionState::Disconnected, 42).activeForText.isEmpty());
         QVERIFY(presentConnection(ConnectionState::Disconnecting, 42).activeForText.isEmpty());
         QVERIFY(presentConnection(ConnectionState::SwitchingGateway, 42).activeForText.isEmpty());
+        // The timer only counts time with a working Tunnel; it restarts on recovery.
+        QVERIFY(presentConnection(ConnectionState::Reconnecting, 42).activeForText.isEmpty());
     }
 
     void gatewayDropdownListsPortalConfigGateways()
@@ -149,6 +154,7 @@ private slots:
         QTest::newRow("Connected") << ConnectionState::Connected << true;
         QTest::newRow("Disconnecting") << ConnectionState::Disconnecting << false;
         QTest::newRow("SwitchingGateway") << ConnectionState::SwitchingGateway << false;
+        QTest::newRow("Reconnecting") << ConnectionState::Reconnecting << false;
     }
 
     void gatewayDropdownEnabledOnlyWhileConnected()
@@ -175,6 +181,7 @@ private slots:
         QTest::newRow("Connected") << ConnectionState::Connected << GatewayPick::Switch;
         QTest::newRow("Disconnecting") << ConnectionState::Disconnecting << GatewayPick::Ignore;
         QTest::newRow("SwitchingGateway") << ConnectionState::SwitchingGateway << GatewayPick::Ignore;
+        QTest::newRow("Reconnecting") << ConnectionState::Reconnecting << GatewayPick::Ignore;
     }
 
     void pickingGateway()
@@ -224,6 +231,7 @@ private slots:
 
         QTest::newRow("Connected") << ConnectionState::Connected << true;
         QTest::newRow("Connecting") << ConnectionState::Connecting << true;
+        QTest::newRow("Reconnecting") << ConnectionState::Reconnecting << true;
         QTest::newRow("Disconnecting") << ConnectionState::Disconnecting << false;
         QTest::newRow("Disconnected") << ConnectionState::Disconnected << false;
     }

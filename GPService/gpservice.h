@@ -27,11 +27,13 @@ public:
         VpnConnecting,
         VpnConnected,
         VpnDisconnecting,
+        VpnReconnecting,  // the Tunnel was lost and openconnect is trying to get it back
     };
 
 signals:
-    void connected();
-    void disconnected();
+    void connected();      // the Tunnel is up, first or again after reconnecting()
+    void disconnected();   // the openconnect process exited
+    void reconnecting();   // the Tunnel was lost; openconnect retries until it gives up
     void error(QString errorMessage);
     void logAvailable(QString log);
 
@@ -43,8 +45,7 @@ public slots:
 private slots:
     void onProcessStarted();
     void onProcessError(QProcess::ProcessError error);
-    void onProcessStdout();
-    void onProcessStderr();
+    void onProcessOutput();
     void onProcessFinished(int exitCode, QProcess::ExitStatus exitStatus);
 
 private:
@@ -53,6 +54,7 @@ private:
     int vpnStatus = GPService::VpnNotConnected;
 
     void log(QString msg);
+    void applyTunnelEvent(const QString &line);
     bool isValidVersion(QString &bin);
     static QString findBinary();
     static QString extraOpenconnectArgs(const QString &gateway);
