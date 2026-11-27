@@ -71,6 +71,21 @@ GatewayPick gatewayPickFor(ConnectionState state)
     }
 }
 
+SwitchLogin switchLoginFor(const QString &portalAuthCookie)
+{
+    return portalAuthCookie.isEmpty() ? SwitchLogin::PortalThenGateway : SwitchLogin::Gateway;
+}
+
+GPGateway switchTargetAfterPortalLogin(const QList<GPGateway> &portalConfigGateways, const QString &pickedName, const GPGateway &preferred)
+{
+    for (const GPGateway &g : portalConfigGateways) {
+        if (g.name() == pickedName) {
+            return g;
+        }
+    }
+    return preferred;
+}
+
 QString shieldResource(Shield shield)
 {
     switch (shield) {

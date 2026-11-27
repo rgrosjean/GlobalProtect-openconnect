@@ -185,6 +185,36 @@ private slots:
         QCOMPARE(gatewayPickFor(state), pick);
     }
 
+    // After a Portal login the Gateway accepts the Portal Auth Cookie, so the switch is
+    // silent; after a quick connect none is held and the Portal login runs first.
+    void switchLogsInToPortalFirstWithoutPortalAuthCookie()
+    {
+        QCOMPARE(switchLoginFor(""), SwitchLogin::PortalThenGateway);
+    }
+
+    void switchLogsInToGatewayWithPortalAuthCookie()
+    {
+        QCOMPARE(switchLoginFor("c0ffee"), SwitchLogin::Gateway);
+    }
+
+    // The Portal login run for a switch ends on the Gateway the user picked, not on
+    // the Portal's preferred one.
+    void switchKeepsPickedGatewayAfterPortalLogin()
+    {
+        const GPGateway g = switchTargetAfterPortalLogin({ berlin(), paris(), tokyo() }, "Tokyo", paris());
+
+        QCOMPARE(g.name(), QString("Tokyo"));
+        QCOMPARE(g.address(), QString("tokyo.example.com"));
+    }
+
+    // The new Portal Config no longer lists the picked Gateway: the preferred one is used.
+    void switchFallsBackToPreferredGatewayWhenPickedOneIsGone()
+    {
+        const GPGateway g = switchTargetAfterPortalLogin({ berlin(), paris() }, "Tokyo", paris());
+
+        QCOMPARE(g.name(), QString("Paris"));
+    }
+
     // The resource must exist and render, and be the right colour: grey, amber, green.
     void shieldRendersInItsColour_data()
     {
