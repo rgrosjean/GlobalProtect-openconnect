@@ -19,6 +19,16 @@ target_link_libraries(tst_connectionview Qt6::Test Qt6::Core)
 add_test(NAME tst_connectionview COMMAND tst_connectionview)
 set_tests_properties(tst_connectionview PROPERTIES TIMEOUT 60)
 
+# Tests for the About dialog text.
+add_executable(tst_aboutinfo
+    tst_aboutinfo.cpp
+    ../aboutinfo.cpp
+)
+target_include_directories(tst_aboutinfo PRIVATE ${CMAKE_SOURCE_DIR}/GPClient)
+target_link_libraries(tst_aboutinfo Qt6::Test Qt6::Core)
+add_test(NAME tst_aboutinfo COMMAND tst_aboutinfo)
+set_tests_properties(tst_aboutinfo PROPERTIES TIMEOUT 60)
+
 # Tests for the request helper that every Portal and Gateway request goes through.
 find_program(OPENSSL_EXECUTABLE openssl)
 if (NOT OPENSSL_EXECUTABLE)

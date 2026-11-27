@@ -1,7 +1,14 @@
+#include <QtWidgets/QToolButton>
+#include <QtGui/QPainter>
+#include <QtGui/QPixmap>
 #include <QtGui/QIcon>
 #include <plog/Log.h>
 
+#include <QtWidgets/QMessageBox>
+
 #include "gpclient.h"
+#include "aboutinfo.h"
+#include "version.h"
 #include "gphelper.h"
 #include "ui_gpclient.h"
 #include "portalauthenticator.h"
@@ -37,6 +44,7 @@ GPClient::GPClient(QWidget *parent, IVpn *vpn)
 
     // Initialize the context menu of system tray.
     initSystemTrayIcon();
+    setupMenu();
     initVpnStatus();
 
     // Centre once the height follows the visible view.
@@ -45,20 +53,53 @@ GPClient::GPClient(QWidget *parent, IVpn *vpn)
 
 void GPClient::setupSettings()
 {
-    settingsButton = new QPushButton(this);
-    settingsButton->setIcon(QIcon(":/images/settings_icon.png"));
-    settingsButton->setFixedSize(QSize(28, 28));
-
-    QRect rect = this->geometry();
-    settingsButton->setGeometry(
-                rect.width() - settingsButton->width() - 15,
-                15,
-                settingsButton->geometry().width(),
-                settingsButton->geometry().height()
-                );
-
-    connect(settingsButton, &QPushButton::clicked, this, &GPClient::onSettingsButtonClicked);
     connect(settingsDialog, &QDialog::accepted, this, &GPClient::onSettingsAccepted);
+}
+
+namespace {
+
+// Three dots drawn in the given colour: the "..." glyph is missing from many fonts.
+QIcon ellipsisIcon(const QColor &colour)
+{
+    QPixmap pixmap(64, 64);
+    pixmap.fill(Qt::transparent);
+    QPainter painter(&pixmap);
+    painter.setRenderHint(QPainter::Antialiasing);
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(colour);
+    for (int i = 0; i < 3; ++i) {
+        painter.drawEllipse(QPointF(14 + i * 18, 32), 5.5, 5.5);
+    }
+    return QIcon(pixmap);
+}
+
+} // namespace
+
+// The "..." button in the top-right corner. Its entries reuse the tray's slots and its
+// Switch Gateway submenu, so every action is reachable without a system tray.
+void GPClient::setupMenu()
+{
+    moreButton = new QToolButton(this);
+    moreButton->setPopupMode(QToolButton::InstantPopup);
+    moreButton->setIcon(ellipsisIcon(palette().buttonText().color()));
+    moreButton->setToolTip("Menu");
+    moreButton->setIconSize(QSize(20, 20));
+    moreButton->setFixedSize(QSize(28, 28));
+    moreButton->setStyleSheet("QToolButton::menu-indicator { image: none; }");
+    moreButton->move(width() - moreButton->width() - 15, 15);
+
+    moreMenu = new QMenu(this);
+    moreMenu->addAction("Settings", this, &GPClient::onSettingsButtonClicked);
+    moreMenu->addMenu(gatewaySwitchMenu);
+    resetMenuAction = moreMenu->addAction("Reset", this, &GPClient::reset);
+    moreMenu->addAction("About", this, &GPClient::showAbout);
+    moreMenu->addAction("Quit", this, &GPClient::quit);
+    moreButton->setMenu(moreMenu);
+}
+
+void GPClient::showAbout()
+{
+    QMessageBox::about(this, "About GlobalProtect", aboutHtml(VERSION));
 }
 
 void GPClient::onSettingsButtonClicked()
@@ -201,6 +242,7 @@ void GPClient::updateConnectionStatus(ConnectionState newState)
     connectAction->setEnabled(shown.buttonEnabled);
     gatewaySwitchMenu->setEnabled(shown.buttonEnabled);
     clearAction->setEnabled(idle);
+    resetMenuAction->setEnabled(idle);
 }
 
 // Shows the page of the central area matching the view, and sizes the window to it:
