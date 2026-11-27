@@ -1,5 +1,6 @@
 // Tests for the connection presenter: for each ConnectionState, what the window
-// shows (status text, shield, main button, visible view, Tunnel timer).
+// shows (status text, shield, main button, visible view, Tunnel timer), and the
+// Gateway dropdown of the connected view.
 
 #include <QtTest/QTest>
 
@@ -78,6 +79,57 @@ private slots:
     {
         QVERIFY(presentConnection(ConnectionState::Disconnected, 42).activeForText.isEmpty());
         QVERIFY(presentConnection(ConnectionState::Disconnecting, 42).activeForText.isEmpty());
+        QVERIFY(presentConnection(ConnectionState::SwitchingGateway, 42).activeForText.isEmpty());
+    }
+
+    void gatewayDropdownListsPortalConfigGateways()
+    {
+        const GatewayChoice c = presentGateways({ "Berlin", "Paris", "Tokyo" }, "Paris", ConnectionState::Connected);
+
+        QCOMPARE(c.names, QStringList({ "Berlin", "Paris", "Tokyo" }));
+        QCOMPARE(c.currentIndex, 1);
+        QVERIFY(c.enabled);
+    }
+
+    // The Portal address used directly as a Gateway: the only Gateway is the Portal itself.
+    void gatewayDropdownDisabledForPortalUsedAsGateway()
+    {
+        const GatewayChoice c = presentGateways({ "vpn.example.com" }, "vpn.example.com", ConnectionState::Connected);
+
+        QCOMPARE(c.names, QStringList({ "vpn.example.com" }));
+        QCOMPARE(c.currentIndex, 0);
+        QVERIFY(!c.enabled);
+    }
+
+    void gatewayDropdownShowsCurrentGatewayWhenNoneListed()
+    {
+        const GatewayChoice c = presentGateways({}, "vpn.example.com", ConnectionState::Connected);
+
+        QCOMPARE(c.names, QStringList({ "vpn.example.com" }));
+        QCOMPARE(c.currentIndex, 0);
+        QVERIFY(!c.enabled);
+    }
+
+    // While the Tunnel goes down or moves, the dropdown shows the Gateway but cannot be used.
+    void gatewayDropdownEnabledOnlyWhileConnected_data()
+    {
+        QTest::addColumn<ConnectionState>("state");
+        QTest::addColumn<bool>("enabled");
+
+        QTest::newRow("Connected") << ConnectionState::Connected << true;
+        QTest::newRow("Disconnecting") << ConnectionState::Disconnecting << false;
+        QTest::newRow("SwitchingGateway") << ConnectionState::SwitchingGateway << false;
+    }
+
+    void gatewayDropdownEnabledOnlyWhileConnected()
+    {
+        QFETCH(ConnectionState, state);
+        QFETCH(bool, enabled);
+
+        const GatewayChoice c = presentGateways({ "Berlin", "Paris" }, "Paris", state);
+
+        QCOMPARE(c.currentIndex, 1);
+        QCOMPARE(c.enabled, enabled);
     }
 };
 

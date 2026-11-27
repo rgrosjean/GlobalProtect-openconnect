@@ -117,6 +117,9 @@
       </widget>
       <widget class="QWidget" name="connectedView">
        <layout class="QVBoxLayout" name="connectedLayout">
+        <property name="spacing">
+         <number>12</number>
+        </property>
         <property name="leftMargin">
          <number>0</number>
         </property>
@@ -129,6 +132,59 @@
         <property name="bottomMargin">
          <number>0</number>
         </property>
+        <item>
+         <widget class="QLabel" name="activeForLabel">
+          <property name="text">
+           <string>Active for 00:00:00</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <layout class="QFormLayout" name="connectedDetailsLayout">
+          <property name="fieldGrowthPolicy">
+           <enum>QFormLayout::AllNonFixedFieldsGrow</enum>
+          </property>
+          <property name="labelAlignment">
+           <set>Qt::AlignLeft|Qt::AlignVCenter</set>
+          </property>
+          <property name="horizontalSpacing">
+           <number>12</number>
+          </property>
+          <property name="verticalSpacing">
+           <number>8</number>
+          </property>
+          <item row="0" column="0">
+           <widget class="QLabel" name="gatewayLabel">
+            <property name="text">
+             <string>Gateway</string>
+            </property>
+            <property name="buddy">
+             <cstring>gatewayInput</cstring>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QComboBox" name="gatewayInput"/>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="connectedPortalLabel">
+            <property name="text">
+             <string>Portal</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QLabel" name="connectedPortalValue">
+            <property name="textInteractionFlags">
+             <set>Qt::TextSelectableByMouse</set>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
        </layout>
       </widget>
      </widget>

@@ -2,6 +2,7 @@
 #define CONNECTIONVIEW_H
 
 #include <QtCore/QString>
+#include <QtCore/QStringList>
 
 // Where the client is in its connection lifecycle. The window holds exactly one.
 enum class ConnectionState {
@@ -38,5 +39,16 @@ struct ConnectionView {
 // Pure mapping from a ConnectionState and the elapsed Tunnel time (in seconds)
 // to what the window shows. No widget or DBus dependency, so it can be tested alone.
 ConnectionView presentConnection(ConnectionState state, qint64 tunnelSeconds);
+
+// What the connected view's Gateway dropdown shows.
+struct GatewayChoice {
+    QStringList names;  // one entry per Gateway, in Portal Config order
+    int currentIndex;   // the current Gateway, -1 if none
+    bool enabled;       // whether the user can pick another Gateway
+};
+
+// Pure mapping from the Gateways of the Portal Config, the current Gateway and the
+// ConnectionState to the Gateway dropdown.
+GatewayChoice presentGateways(const QStringList &gatewayNames, const QString &currentGateway, ConnectionState state);
 
 #endif // CONNECTIONVIEW_H
