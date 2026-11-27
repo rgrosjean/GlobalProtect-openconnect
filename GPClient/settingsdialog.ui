@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>488</width>
-    <height>220</height>
+    <height>190</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -23,55 +23,75 @@
    <iconset resource="resources.qrc">
     <normaloff>:/images/connected.png</normaloff>:/images/connected.png</iconset>
   </property>
-  <layout class="QFormLayout" name="formLayout_3">
-   <item row="0" column="0">
-    <widget class="QLabel" name="label">
-     <property name="text">
-      <string>Custom Parameters:</string>
+  <layout class="QVBoxLayout" name="mainLayout">
+   <property name="spacing">
+    <number>14</number>
+   </property>
+   <property name="leftMargin">
+    <number>20</number>
+   </property>
+   <property name="topMargin">
+    <number>20</number>
+   </property>
+   <property name="rightMargin">
+    <number>20</number>
+   </property>
+   <property name="bottomMargin">
+    <number>16</number>
+   </property>
+   <item>
+    <layout class="QFormLayout" name="formLayout">
+     <property name="horizontalSpacing">
+      <number>16</number>
      </property>
-    </widget>
+     <property name="verticalSpacing">
+      <number>12</number>
+     </property>
+     <item row="0" column="0">
+      <widget class="QLabel" name="clientosLabel">
+       <property name="text">
+        <string>Client OS:</string>
+       </property>
+       <property name="buddy">
+        <cstring>clientosInput</cstring>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="1">
+      <widget class="QComboBox" name="clientosInput"/>
+     </item>
+     <item row="1" column="0">
+      <widget class="QLabel" name="osVersionLabel">
+       <property name="text">
+        <string>OS version:</string>
+       </property>
+       <property name="buddy">
+        <cstring>osVersionInput</cstring>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="1">
+      <widget class="QLineEdit" name="osVersionInput"/>
+     </item>
+    </layout>
    </item>
-   <item row="0" column="1">
-    <widget class="QPlainTextEdit" name="extraArgsInput">
-     <property name="readOnly">
+   <item>
+    <widget class="QLabel" name="noteLabel">
+     <property name="text">
+      <string>Custom parameters are configured in &quot;/etc/gpservice/gp.conf&quot;.</string>
+     </property>
+     <property name="wordWrap">
       <bool>true</bool>
      </property>
-     <property name="placeholderText">
-      <string>The configuration has been moved to &quot;/etc/gpservice/gp.conf&quot;</string>
-     </property>
     </widget>
    </item>
-   <item row="1" column="0">
-    <widget class="QLabel" name="label_2">
-     <property name="text">
-      <string>clientos:</string>
-     </property>
-    </widget>
-   </item>
-   <item row="1" column="1">
-    <widget class="QLineEdit" name="clientosInput">
-     <property name="placeholderText">
-      <string>e.g., Windows</string>
-     </property>
-    </widget>
-   </item>
-   <item row="3" column="1">
+   <item>
     <widget class="QDialogButtonBox" name="buttonBox">
      <property name="orientation">
       <enum>Qt::Horizontal</enum>
      </property>
      <property name="standardButtons">
       <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
-     </property>
-    </widget>
-   </item>
-   <item row="2" column="1">
-    <widget class="QLineEdit" name="osVersionInput"/>
-   </item>
-   <item row="2" column="0">
-    <widget class="QLabel" name="label_3">
-     <property name="text">
-      <string>os-version:</string>
      </property>
     </widget>
    </item>

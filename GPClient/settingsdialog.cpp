@@ -1,11 +1,13 @@
 #include "settingsdialog.h"
 #include "ui_settingsdialog.h"
+#include "clientos.h"
 
 SettingsDialog::SettingsDialog(QWidget *parent) :
     QDialog(parent),
     ui(new Ui::SettingsDialog)
 {
     ui->setupUi(this);
+    ui->clientosInput->addItems(clientOsOptions());
 }
 
 SettingsDialog::~SettingsDialog()
@@ -13,24 +15,14 @@ SettingsDialog::~SettingsDialog()
     delete ui;
 }
 
-void SettingsDialog::setExtraArgs(QString extraArgs)
-{
-    ui->extraArgsInput->setPlainText(extraArgs);
-}
-
-QString SettingsDialog::extraArgs()
-{
-    return ui->extraArgsInput->toPlainText().trimmed();
-}
-
 void SettingsDialog::setClientos(QString clientos)
 {
-    ui->clientosInput->setText(clientos);
+    ui->clientosInput->setCurrentIndex(clientOsIndex(clientos));
 }
 
 QString SettingsDialog::clientos()
 {
-    return ui->clientosInput->text();
+    return ui->clientosInput->currentText();
 }
 
 void SettingsDialog::setOsVersion(QString osVersion) {

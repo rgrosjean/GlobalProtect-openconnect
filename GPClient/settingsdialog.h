@@ -15,9 +15,6 @@ public:
     explicit SettingsDialog(QWidget *parent = nullptr);
     ~SettingsDialog();
 
-    void setExtraArgs(QString extraArgs);
-    QString extraArgs();
-
     void setClientos(QString clientos);
     QString clientos();
 
