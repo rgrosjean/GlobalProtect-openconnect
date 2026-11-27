@@ -34,7 +34,7 @@ ConnectionView presentConnection(ConnectionState state, qint64 tunnelSeconds)
     case ConnectionState::SwitchingGateway:
         return inProgress("Switching Gateway...", VisibleView::Connected);
     case ConnectionState::Disconnected:
-    default:
-        return { "Not Connected", Shield::NotConnected, "Connect", true, VisibleView::Disconnected, {} };
+        break;
     }
+    return { "Not Connected", Shield::NotConnected, "Connect", true, VisibleView::Disconnected, {} };
 }

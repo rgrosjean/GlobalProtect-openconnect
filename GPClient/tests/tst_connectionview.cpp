@@ -52,7 +52,7 @@ private slots:
         QCOMPARE(v.shield, shield);
         QCOMPARE(v.buttonText, buttonText);
         QCOMPARE(v.buttonEnabled, buttonEnabled);
-        QCOMPARE(v.view, view);
+        QCOMPARE(v.visibleView, view);
     }
 
     void formatsActiveFor_data()

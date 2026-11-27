@@ -31,7 +31,7 @@ struct ConnectionView {
     Shield shield;
     QString buttonText;
     bool buttonEnabled;
-    VisibleView view;
+    VisibleView visibleView;
     QString activeForText;  // "Active for hh:mm:ss" while Connected, empty otherwise
 };
 

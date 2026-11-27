@@ -77,10 +77,9 @@ private:
     QPushButton *settingsButton;
 
     ConnectionState state { ConnectionState::Disconnected };
-    QDateTime tunnelStartedAt;  // when the VPN reported connected; invalid otherwise
+    QDateTime tunnelStartedAt;  // when the state became Connected; invalid once Disconnected
 
     bool isQuickConnect { false };
-    bool isSwitchingGateway { false };
     PortalConfigResponse portalConfig;
 
     void setupSettings();
