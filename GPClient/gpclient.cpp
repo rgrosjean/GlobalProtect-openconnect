@@ -556,16 +556,11 @@ bool GPClient::connected() const
     return state == ConnectionState::Connected;
 }
 
+// The Gateways saved for the current Portal only: from its Portal Config, or the
+// Portal itself when it was used directly as a Gateway.
 QList<GPGateway> GPClient::allGateways() const
 {
-
-    QList<GPGateway> gateways;
-
-    for (auto g :settings::get_all("_gateways$") ){
-
-    	gateways.append(GPGateway::fromJson(settings::get(g).toString()));
-    }
-    return gateways;
+    return GPGateway::fromJson(settings::get(portal() + "_gateways").toString());
 }
 
 void GPClient::setAllGateways(QList<GPGateway> gateways)
