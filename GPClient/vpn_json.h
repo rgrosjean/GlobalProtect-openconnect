@@ -17,6 +17,7 @@ public:
 signals: // SIGNALS
   void connected();
   void disconnected();
+  void reconnecting();
   void error(const QString &errorMessage);
   void logAvailable(const QString &log);
 };

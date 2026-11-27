@@ -66,6 +66,7 @@ private slots:
 
     void onVPNConnected();
     void onVPNDisconnected();
+    void onVPNReconnecting();
     void onVPNError(QString errorMessage);
     void onVPNLogAvailable(QString log);
 

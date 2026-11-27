@@ -15,6 +15,7 @@ public:
 // signals: // SIGNALS
 //     virtual void connected();
 //     virtual void disconnected();
+//     virtual void reconnecting();
 //     virtual void error(const QString &errorMessage);
 //     virtual void logAvailable(const QString &log);
 };

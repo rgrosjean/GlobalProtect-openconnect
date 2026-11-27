@@ -20,5 +20,5 @@ void VpnJson::connect(const QString &preferredServer, const QList<QString> &serv
 void VpnJson::disconnect() { /* nop */ }
 
 int VpnJson::status() {
-    return 4; // disconnected
+    return 0; // not connected
 }

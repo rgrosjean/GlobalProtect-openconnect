@@ -13,7 +13,8 @@ enum class ConnectionState {
     Connecting,
     Connected,
     Disconnecting,
-    SwitchingGateway
+    SwitchingGateway,
+    Reconnecting  // the Tunnel was lost and openconnect is trying to get it back
 };
 
 enum class Shield {
@@ -79,7 +80,7 @@ GPGateway switchTargetAfterPortalLogin(const QList<GPGateway> &portalConfigGatew
 
 // Whether a Gateway switch whose old Tunnel never went down gives the current Gateway
 // back to the previous one, given the state read from the VPN when the fallback timer
-// fires: a Tunnel still up or coming up runs on the previous Gateway.
+// fires: a Tunnel still up, coming up or reconnecting runs on the previous Gateway.
 bool switchTimeoutRestoresPreviousGateway(ConnectionState stateAfterTimeout);
 
 // Qt resource path of the SVG icon drawn for a shield, used by the window and the tray.
