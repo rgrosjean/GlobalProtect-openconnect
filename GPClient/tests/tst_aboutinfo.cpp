@@ -29,7 +29,6 @@ private slots:
 
     void linksToForkRepository()
     {
-        QCOMPARE(aboutRepositoryUrl(), QString("https://github.com/rgrosjean/GlobalProtect-openconnect"));
         QVERIFY(aboutHtml("1.5.5").contains("<a href=\"https://github.com/rgrosjean/GlobalProtect-openconnect\">"));
     }
 };

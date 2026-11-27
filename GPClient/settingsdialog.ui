@@ -63,7 +63,7 @@
      <item row="1" column="0">
       <widget class="QLabel" name="osVersionLabel">
        <property name="text">
-        <string>OS version:</string>
+        <string>Client OS version:</string>
        </property>
        <property name="buddy">
         <cstring>osVersionInput</cstring>

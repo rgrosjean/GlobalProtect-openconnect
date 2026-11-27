@@ -15,6 +15,7 @@ sudo apt-get install -y \
     "$QT_WEBSOCKETS_PKG" \
     qt6-webengine-dev \
     qt6-svg-dev \
+	qt6-svg-plugins \
     qtkeychain-qt6-dev \
     openconnect
 

@@ -13,6 +13,7 @@ endif()
 add_executable(tst_connectionview
     tst_connectionview.cpp
     ../connectionview.cpp
+    ../gpgateway.cpp
     ../resources.qrc
 )
 target_include_directories(tst_connectionview PRIVATE ${CMAKE_SOURCE_DIR}/GPClient)
@@ -73,6 +74,7 @@ add_executable(tst_requesthelper
     tst_requesthelper.cpp
     ../gphelper.cpp
     ../gpgateway.cpp
+    ../clientos.cpp
 )
 
 add_dependencies(tst_requesthelper

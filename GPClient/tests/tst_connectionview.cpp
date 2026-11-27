@@ -12,6 +12,23 @@
 Q_DECLARE_METATYPE(ConnectionState)
 Q_DECLARE_METATYPE(Shield)
 Q_DECLARE_METATYPE(VisibleView)
+Q_DECLARE_METATYPE(GatewayPick)
+
+namespace {
+
+GPGateway gateway(const QString &name, const QString &address)
+{
+    GPGateway g;
+    g.setName(name);
+    g.setAddress(address);
+    return g;
+}
+
+GPGateway berlin() { return gateway("Berlin", "berlin.example.com"); }
+GPGateway paris() { return gateway("Paris", "paris.example.com"); }
+GPGateway tokyo() { return gateway("Tokyo", "tokyo.example.com"); }
+
+} // namespace
 
 class TestConnectionView : public QObject
 {
@@ -87,17 +104,26 @@ private slots:
 
     void gatewayDropdownListsPortalConfigGateways()
     {
-        const GatewayChoice c = presentGateways({ "Berlin", "Paris", "Tokyo" }, "Paris", ConnectionState::Connected);
+        const GatewayChoice c = presentGateways({ berlin(), paris(), tokyo() }, paris(), ConnectionState::Connected);
 
         QCOMPARE(c.names, QStringList({ "Berlin", "Paris", "Tokyo" }));
         QCOMPARE(c.currentIndex, 1);
         QVERIFY(c.enabled);
     }
 
+    // Each entry's address is shown with its name (as a tooltip).
+    void gatewayDropdownGivesEachGatewayItsAddress()
+    {
+        const GatewayChoice c = presentGateways({ berlin(), paris(), tokyo() }, paris(), ConnectionState::Connected);
+
+        QCOMPARE(c.addresses, QStringList({ "berlin.example.com", "paris.example.com", "tokyo.example.com" }));
+    }
+
     // The Portal address used directly as a Gateway: the only Gateway is the Portal itself.
     void gatewayDropdownDisabledForPortalUsedAsGateway()
     {
-        const GatewayChoice c = presentGateways({ "vpn.example.com" }, "vpn.example.com", ConnectionState::Connected);
+        const GPGateway portal = gateway("vpn.example.com", "vpn.example.com");
+        const GatewayChoice c = presentGateways({ portal }, portal, ConnectionState::Connected);
 
         QCOMPARE(c.names, QStringList({ "vpn.example.com" }));
         QCOMPARE(c.currentIndex, 0);
@@ -106,9 +132,10 @@ private slots:
 
     void gatewayDropdownShowsCurrentGatewayWhenNoneListed()
     {
-        const GatewayChoice c = presentGateways({}, "vpn.example.com", ConnectionState::Connected);
+        const GatewayChoice c = presentGateways({}, gateway("vpn.example.com", "10.0.0.1"), ConnectionState::Connected);
 
         QCOMPARE(c.names, QStringList({ "vpn.example.com" }));
+        QCOMPARE(c.addresses, QStringList({ "10.0.0.1" }));
         QCOMPARE(c.currentIndex, 0);
         QVERIFY(!c.enabled);
     }
@@ -129,28 +156,33 @@ private slots:
         QFETCH(ConnectionState, state);
         QFETCH(bool, enabled);
 
-        const GatewayChoice c = presentGateways({ "Berlin", "Paris" }, "Paris", state);
+        const GatewayChoice c = presentGateways({ berlin(), paris() }, paris(), state);
 
         QCOMPARE(c.currentIndex, 1);
         QCOMPARE(c.enabled, enabled);
     }
 
-    void mapsShieldToResource_data()
+    // Picking a Gateway moves the Tunnel when Connected, only selects it when
+    // Disconnected, and is ignored while a login or Tunnel change is in progress.
+    void pickingGateway_data()
     {
-        QTest::addColumn<Shield>("shield");
-        QTest::addColumn<QString>("resource");
+        QTest::addColumn<ConnectionState>("state");
+        QTest::addColumn<GatewayPick>("pick");
 
-        QTest::newRow("not connected") << Shield::NotConnected << ":/images/shield_not_connected.svg";
-        QTest::newRow("in progress") << Shield::InProgress << ":/images/shield_in_progress.svg";
-        QTest::newRow("connected") << Shield::Connected << ":/images/shield_connected.svg";
+        QTest::newRow("Disconnected") << ConnectionState::Disconnected << GatewayPick::Select;
+        QTest::newRow("Authenticating") << ConnectionState::Authenticating << GatewayPick::Ignore;
+        QTest::newRow("Connecting") << ConnectionState::Connecting << GatewayPick::Ignore;
+        QTest::newRow("Connected") << ConnectionState::Connected << GatewayPick::Switch;
+        QTest::newRow("Disconnecting") << ConnectionState::Disconnecting << GatewayPick::Ignore;
+        QTest::newRow("SwitchingGateway") << ConnectionState::SwitchingGateway << GatewayPick::Ignore;
     }
 
-    void mapsShieldToResource()
+    void pickingGateway()
     {
-        QFETCH(Shield, shield);
-        QFETCH(QString, resource);
+        QFETCH(ConnectionState, state);
+        QFETCH(GatewayPick, pick);
 
-        QCOMPARE(shieldResource(shield), resource);
+        QCOMPARE(gatewayPickFor(state), pick);
     }
 
     // The resource must exist and render, and be the right colour: grey, amber, green.
