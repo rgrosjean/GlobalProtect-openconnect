@@ -6,6 +6,5 @@
         <file>shield_not_connected.svg</file>
         <file>radio_unselected.png</file>
         <file>radio_selected.png</file>
-        <file>settings_icon.png</file>
     </qresource>
 </RCC>

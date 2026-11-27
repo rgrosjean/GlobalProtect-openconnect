@@ -34,6 +34,7 @@ add_executable(gpclient
     gpclient.cpp
     clientos.cpp
     connectionview.cpp
+    aboutinfo.cpp
     settingsdialog.cpp
     gpclient.ui
     standardloginwindow.ui
