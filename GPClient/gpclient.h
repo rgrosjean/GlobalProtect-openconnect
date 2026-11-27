@@ -2,9 +2,11 @@
 #define GPCLIENT_H
 
 #include <QtCore/QDateTime>
+#include <QtCore/QTimer>
 #include <QtWidgets/QMainWindow>
 #include <QtWidgets/QSystemTrayIcon>
 #include <QtWidgets/QMenu>
+#include <QtWidgets/QToolButton>
 #include <QtWidgets/QPushButton>
 
 #include "connectionview.h"
@@ -36,8 +38,12 @@ public:
     void doConnect();
     void reset();
 
+protected:
+    void changeEvent(QEvent *event) override;
+
 private slots:
-    void onSettingsButtonClicked();
+    void openSettings();
+    void showAbout();
     void onSettingsAccepted();
 
     void on_connectButton_clicked();
@@ -46,6 +52,9 @@ private slots:
 
     void onSystemTrayActivated(QSystemTrayIcon::ActivationReason reason);
     void onGatewayChanged(QAction *action);
+    void onGatewayInputActivated(int index);
+    void onTunnelTimerTick();
+    void onSwitchTimeout();
 
     void onPortalSuccess(const PortalConfigResponse portalConfig, const QString region);
     void onPortalPreloginFail(const QString msg);
@@ -74,26 +83,39 @@ private:
     QAction *quitAction;
 
     SettingsDialog *settingsDialog;
-    QPushButton *settingsButton;
+    QToolButton *actionsButton { nullptr };
+    QMenu *actionsMenu;
+    QAction *resetMenuAction;
 
     ConnectionState state { ConnectionState::Disconnected };
-    QDateTime tunnelStartedAt;  // when the state became Connected; invalid once Disconnected
+    // When the current Tunnel came up; invalid while no Tunnel is up (including the
+    // part of a Gateway switch after the old Tunnel went down).
+    QDateTime tunnelStartedAt;
+    QTimer *tunnelTimer;  // refreshes the "Active for" text once per second while Connected
+    QTimer *switchTimeout;  // ends a Gateway switch whose old Tunnel never reports going down
+    GPGateway gatewayBeforeSwitch;  // the Gateway of the old Tunnel during a Gateway switch
 
     bool isQuickConnect { false };
     PortalConfigResponse portalConfig;
 
     void setupSettings();
+    void setupActionsMenu();
+    void updateActionsIcon();
 
     void initSystemTrayIcon();
     void initVpnStatus();
-    void populateGatewayMenu();
+    void populateGateways();
+    void populateGatewayMenu(const QList<GPGateway> &gateways, const GPGateway &current);
+    void populateGatewayInput(const QList<GPGateway> &gateways, const GPGateway &current);
     void updateConnectionStatus(ConnectionState newState);
+    void updateUnlessSwitching(ConnectionState newState);
+    qint64 tunnelSeconds() const;
+    void switchGateway(int index);
+    void showView(VisibleView view);
 
     void portalLogin();
     void tryGatewayLogin();
     void gatewayLogin();
-
-    bool connected() const;
 
     QList<GPGateway> allGateways() const;
     void setAllGateways(QList<GPGateway> gateways);

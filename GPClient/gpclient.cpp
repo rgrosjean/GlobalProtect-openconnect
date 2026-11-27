@@ -1,7 +1,14 @@
+#include <QtWidgets/QToolButton>
+#include <QtGui/QPainter>
+#include <QtGui/QPixmap>
 #include <QtGui/QIcon>
 #include <plog/Log.h>
 
+#include <QtWidgets/QMessageBox>
+
 #include "gpclient.h"
+#include "aboutinfo.h"
+#include "version.h"
 #include "gphelper.h"
 #include "ui_gpclient.h"
 #include "portalauthenticator.h"
@@ -16,12 +23,14 @@ GPClient::GPClient(QWidget *parent, IVpn *vpn)
     , ui(new Ui::GPClient)
     , vpn(vpn)
     , settingsDialog(new SettingsDialog(this))
+    , tunnelTimer(new QTimer(this))
+    , switchTimeout(new QTimer(this))
 {
     ui->setupUi(this);
 
     setWindowTitle("GlobalProtect");
-    setFixedSize(width(), height());
-    gpclient::helper::moveCenter(this);
+    // Fixed width from the .ui file; the height follows the visible view (see showView).
+    setFixedWidth(width());
 
     setupSettings();
 
@@ -35,32 +44,92 @@ GPClient::GPClient(QWidget *parent, IVpn *vpn)
     connect(ov, SIGNAL(error(QString)), this, SLOT(onVPNError(QString)));
     connect(ov, SIGNAL(logAvailable(QString)), this, SLOT(onVPNLogAvailable(QString)));
 
+    // Connected view: the Gateway dropdown switches Gateway, the timer refreshes "Active for".
+    connect(ui->gatewayInput, &QComboBox::activated, this, &GPClient::onGatewayInputActivated);
+    tunnelTimer->setInterval(1000);
+    connect(tunnelTimer, &QTimer::timeout, this, &GPClient::onTunnelTimerTick);
+    switchTimeout->setSingleShot(true);
+    switchTimeout->setInterval(30000);
+    connect(switchTimeout, &QTimer::timeout, this, &GPClient::onSwitchTimeout);
+
     // Initialize the context menu of system tray.
     initSystemTrayIcon();
+    setupActionsMenu();
     initVpnStatus();
+
+    // Centre once the height follows the visible view.
+    gpclient::helper::moveCenter(this);
 }
 
 void GPClient::setupSettings()
 {
-    settingsButton = new QPushButton(this);
-    settingsButton->setIcon(QIcon(":/images/settings_icon.png"));
-    settingsButton->setFixedSize(QSize(28, 28));
-
-    QRect rect = this->geometry();
-    settingsButton->setGeometry(
-                rect.width() - settingsButton->width() - 15,
-                15,
-                settingsButton->geometry().width(),
-                settingsButton->geometry().height()
-                );
-
-    connect(settingsButton, &QPushButton::clicked, this, &GPClient::onSettingsButtonClicked);
     connect(settingsDialog, &QDialog::accepted, this, &GPClient::onSettingsAccepted);
 }
 
-void GPClient::onSettingsButtonClicked()
+namespace {
+
+// Three dots drawn in the given colour: the "..." glyph is missing from many fonts.
+QIcon ellipsisIcon(const QColor &colour)
 {
-    settingsDialog->setClientos(settings::get("clientos", "Linux").toString());
+    QPixmap pixmap(64, 64);
+    pixmap.fill(Qt::transparent);
+    QPainter painter(&pixmap);
+    painter.setRenderHint(QPainter::Antialiasing);
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(colour);
+    for (int i = 0; i < 3; ++i) {
+        painter.drawEllipse(QPointF(14 + i * 18, 32), 5.5, 5.5);
+    }
+    return QIcon(pixmap);
+}
+
+} // namespace
+
+// The "..." button in the top-right corner. Its entries reuse the tray's slots and its
+// Switch Gateway submenu, so every action is reachable without a system tray.
+void GPClient::setupActionsMenu()
+{
+    actionsButton = new QToolButton(this);
+    actionsButton->setPopupMode(QToolButton::InstantPopup);
+    actionsButton->setToolTip("Menu");
+    actionsButton->setIconSize(QSize(20, 20));
+    actionsButton->setFixedSize(QSize(28, 28));
+    actionsButton->setStyleSheet("QToolButton::menu-indicator { image: none; }");
+    actionsButton->move(width() - actionsButton->width() - 15, 15);
+
+    actionsMenu = new QMenu(this);
+    actionsMenu->addAction("Settings", this, &GPClient::openSettings);
+    actionsMenu->addMenu(gatewaySwitchMenu);
+    resetMenuAction = actionsMenu->addAction("Reset", this, &GPClient::reset);
+    actionsMenu->addAction("About", this, &GPClient::showAbout);
+    actionsMenu->addAction("Quit", this, &GPClient::quit);
+    actionsButton->setMenu(actionsMenu);
+    updateActionsIcon();
+}
+
+// The dots use the palette's button text colour, so they follow a light or dark theme.
+void GPClient::updateActionsIcon()
+{
+    actionsButton->setIcon(ellipsisIcon(palette().buttonText().color()));
+}
+
+void GPClient::changeEvent(QEvent *event)
+{
+    QMainWindow::changeEvent(event);
+    // Palette events can arrive while setupUi() runs, before the button exists.
+    if (actionsButton && (event->type() == QEvent::PaletteChange || event->type() == QEvent::ApplicationPaletteChange)) {
+        updateActionsIcon();
+    }
+}
+
+void GPClient::showAbout()
+{
+    QMessageBox::about(this, "About GlobalProtect", aboutHtml(VERSION));
+}
+
+void GPClient::openSettings()
+{
+    settingsDialog->setClientos(clientos());
     settingsDialog->setOsVersion(settings::get("os-version", QSysInfo::prettyProductName()).toString());
     settingsDialog->show();
 }
@@ -83,7 +152,7 @@ void GPClient::on_portalInput_returnPressed()
 
 void GPClient::on_portalInput_editingFinished()
 {
-    populateGatewayMenu();
+    populateGateways();
 }
 
 void GPClient::initSystemTrayIcon()
@@ -93,9 +162,9 @@ void GPClient::initSystemTrayIcon()
 
     gatewaySwitchMenu = new QMenu("Switch Gateway", this);
     gatewaySwitchMenu->setIcon(QIcon::fromTheme("network-workgroup"));
-    populateGatewayMenu();
+    populateGateways();
 
-    systemTrayIcon->setIcon(QIcon(":/images/not_connected.png"));
+    systemTrayIcon->setIcon(QIcon(shieldResource(Shield::NotConnected)));
     systemTrayIcon->setToolTip("GlobalProtect");
     systemTrayIcon->setContextMenu(contextMenu);
 
@@ -128,11 +197,21 @@ void GPClient::initVpnStatus() {
     }
 }
 
-void GPClient::populateGatewayMenu()
+// Refills both Gateway pickers, the tray's Switch Gateway menu and the connected
+// view's dropdown, from the same Gateways and current Gateway, so both always agree.
+// Called whenever the Portal, its Gateways or the current Gateway change.
+void GPClient::populateGateways()
+{
+    const QList<GPGateway> gateways = allGateways();
+    const GPGateway current = currentGateway();
+    populateGatewayMenu(gateways, current);
+    populateGatewayInput(gateways, current);
+}
+
+void GPClient::populateGatewayMenu(const QList<GPGateway> &gateways, const GPGateway &current)
 {
     LOGI << "Populating the Switch Gateway menu...";
 
-    const QList<GPGateway> gateways = allGateways();
     gatewaySwitchMenu->clear();
 
     if (gateways.isEmpty()) {
@@ -140,7 +219,7 @@ void GPClient::populateGatewayMenu()
         return;
     }
 
-    const QString currentGatewayName = currentGateway().name();
+    const QString currentGatewayName = current.name();
     for (int i = 0; i < gateways.length(); i++) {
         const GPGateway g = gateways.at(i);
         QString iconImage = ":/images/radio_unselected.png";
@@ -151,22 +230,20 @@ void GPClient::populateGatewayMenu()
     }
 }
 
-namespace {
-
-QString shieldImage(Shield shield)
+// The connected view's Gateway dropdown; whether it is enabled also depends on the state.
+void GPClient::populateGatewayInput(const QList<GPGateway> &gateways, const GPGateway &current)
 {
-    switch (shield) {
-    case Shield::Connected:
-        return ":/images/connected.png";
-    case Shield::InProgress:
-        return ":/images/pending.png";
-    case Shield::NotConnected:
-        break;
-    }
-    return ":/images/not_connected.png";
-}
+    const GatewayChoice choice = presentGateways(gateways, current, state);
 
-} // namespace
+    const QSignalBlocker blocker(ui->gatewayInput);
+    ui->gatewayInput->clear();
+    for (int i = 0; i < choice.names.size(); ++i) {
+        ui->gatewayInput->addItem(choice.names.at(i));
+        ui->gatewayInput->setItemData(i, choice.addresses.at(i), Qt::ToolTipRole);
+    }
+    ui->gatewayInput->setCurrentIndex(choice.currentIndex);
+    ui->gatewayInput->setEnabled(choice.enabled);
+}
 
 // The only place that sets the status text, the main button and the tray Connect action:
 // it applies what the presenter returns for the state.
@@ -179,24 +256,69 @@ void GPClient::updateConnectionStatus(ConnectionState newState)
         tunnelStartedAt = QDateTime();
     }
 
-    const qint64 tunnelSeconds = tunnelStartedAt.isValid()
-        ? tunnelStartedAt.secsTo(QDateTime::currentDateTime())
-        : 0;
-    const ConnectionView shown = presentConnection(state, tunnelSeconds);
-    const QString image = shieldImage(shown.shield);
+    // The timer runs only while Connected, so a new Tunnel starts at 00:00:00.
+    if (state == ConnectionState::Connected) {
+        tunnelTimer->start();
+    } else {
+        tunnelTimer->stop();
+    }
+
+    const ConnectionView shown = presentConnection(state, tunnelSeconds());
+    const QIcon shieldIcon{ shieldResource(shown.shield) };
     const bool idle = state == ConnectionState::Disconnected;
 
     ui->statusLabel->setText(shown.statusText);
-    ui->statusImage->setStyleSheet(QString("image: url(%1); padding: 15;").arg(image));
+    // Rendered at the screen's pixel ratio, so the SVG stays sharp on HiDPI screens.
+    ui->statusImage->setAlignment(Qt::AlignCenter);
+    ui->statusImage->setPixmap(shieldIcon.pixmap(QSize(80, 80)));
     ui->connectButton->setText(shown.buttonText);
     ui->connectButton->setEnabled(shown.buttonEnabled);
     ui->portalInput->setReadOnly(!idle);
+    ui->activeForLabel->setText(shown.activeForText);
+    ui->connectedPortalValue->setText(portal());
+    populateGatewayInput(allGateways(), currentGateway());
+    showView(shown.visibleView);
 
-    systemTrayIcon->setIcon(QIcon{ image });
+    systemTrayIcon->setIcon(shieldIcon);
     connectAction->setText(shown.buttonText);
     connectAction->setEnabled(shown.buttonEnabled);
     gatewaySwitchMenu->setEnabled(shown.buttonEnabled);
     clearAction->setEnabled(idle);
+    resetMenuAction->setEnabled(idle);
+}
+
+// Applies an in-progress state, except during a Gateway switch: "Switching Gateway..."
+// lasts until the Tunnel is up on the new Gateway, through its login and connection.
+void GPClient::updateUnlessSwitching(ConnectionState newState)
+{
+    updateConnectionStatus(state == ConnectionState::SwitchingGateway ? state : newState);
+}
+
+qint64 GPClient::tunnelSeconds() const
+{
+    return tunnelStartedAt.isValid() ? tunnelStartedAt.secsTo(QDateTime::currentDateTime()) : 0;
+}
+
+void GPClient::onTunnelTimerTick()
+{
+    ui->activeForLabel->setText(presentConnection(state, tunnelSeconds()).activeForText);
+}
+
+// Shows the page of the central area matching the view, and sizes the window to it:
+// hidden pages get an Ignored size policy so the stack only measures the current one.
+void GPClient::showView(VisibleView view)
+{
+    QWidget *const current = view == VisibleView::Connected ? ui->connectedView : ui->disconnectedView;
+    for (int i = 0; i < ui->viewStack->count(); ++i) {
+        QWidget *page = ui->viewStack->widget(i);
+        const auto policy = page == current ? QSizePolicy::Preferred : QSizePolicy::Ignored;
+        page->setSizePolicy(policy, policy);
+    }
+    ui->viewStack->setCurrentWidget(current);
+
+    centralWidget()->layout()->activate();
+    layout()->activate();
+    setFixedHeight(sizeHint().height());
 }
 
 void GPClient::onSystemTrayActivated(QSystemTrayIcon::ActivationReason reason)
@@ -213,24 +335,43 @@ void GPClient::onSystemTrayActivated(QSystemTrayIcon::ActivationReason reason)
 
 void GPClient::onGatewayChanged(QAction *action)
 {
-    const int index = action->data().toInt();
+    switchGateway(action->data().toInt());
+}
 
-    if (index == -1) {
+void GPClient::onGatewayInputActivated(int index)
+{
+    switchGateway(index);
+}
+
+// The one Gateway switch path, shared by the tray's Switch Gateway menu and the
+// connected view's Gateway dropdown. The index is into allGateways().
+void GPClient::switchGateway(int index)
+{
+    const GatewayPick pick = gatewayPickFor(state);
+    if (pick == GatewayPick::Ignore) {
+        LOGI << "Busy, ignoring the Gateway switch.";
         return;
     }
 
-    const auto g = allGateways().at(index);
+    const QList<GPGateway> gateways = allGateways();
+    if (index < 0 || index >= gateways.size()) {
+        return;
+    }
+
+    const auto g = gateways.at(index);
 
     // If the selected gateway is the same as the current gateway
     if (g.name() == currentGateway().name()) {
         return;
     }
 
+    gatewayBeforeSwitch = currentGateway();
     setCurrentGateway(g);
 
-    if (connected()) {
+    if (pick == GatewayPick::Switch) {
         updateConnectionStatus(ConnectionState::SwitchingGateway);
         vpn->disconnect();
+        switchTimeout->start();
     }
 }
 
@@ -273,7 +414,7 @@ void GPClient::doConnect()
 // Login to the portal interface to get the portal config and preferred gateway
 void GPClient::portalLogin()
 {
-    auto *portalAuth = new PortalAuthenticator(portal(), settings::get("clientos", "Linux").toString());
+    auto *portalAuth = new PortalAuthenticator(portal(), clientos());
 
     connect(portalAuth, &PortalAuthenticator::success, [this, portalAuth](const PortalConfigResponse response, const QString region) {
         this->onPortalSuccess(response, region);
@@ -294,7 +435,7 @@ void GPClient::portalLogin()
         portalAuth->deleteLater();
     });
 
-    updateConnectionStatus(ConnectionState::Authenticating);
+    updateUnlessSwitching(ConnectionState::Authenticating);
     portalAuth->authenticate();
 }
 
@@ -310,6 +451,14 @@ void GPClient::onPortalSuccess(const PortalConfigResponse portalConfig, const QS
     }
 
     GPGateway gateway = filterPreferredGateway(portalConfig.allGateways(), region);
+    // A Portal login run for a Gateway switch ends on the Gateway the user picked.
+    if (state == ConnectionState::SwitchingGateway) {
+        const QString picked = currentGateway().name();
+        gateway = switchTargetAfterPortalLogin(portalConfig.allGateways(), picked, gateway);
+        if (gateway.name() != picked) {
+            LOGW << "The Portal Config no longer lists the Gateway " << picked << ", switching to the preferred Gateway " << gateway.name() << " instead.";
+        }
+    }
     setAllGateways(portalConfig.allGateways());
     setCurrentGateway(gateway);
     this->portalConfig = portalConfig;
@@ -319,12 +468,23 @@ void GPClient::onPortalSuccess(const PortalConfigResponse portalConfig, const QS
 
 void GPClient::onPortalPreloginFail(const QString msg)
 {
+    // During a Gateway switch the Portal is known to work as a Portal: a failure ends the switch.
+    if (state == ConnectionState::SwitchingGateway) {
+        LOGW << "Portal prelogin failed during the Gateway switch. " << msg;
+        onPortalFail(msg);
+        return;
+    }
     LOGI << "Portal prelogin failed, treat the portal address as a gateway." << msg;
     tryGatewayLogin();
 }
 
 void GPClient::onPortalConfigFail(const QString msg)
 {
+    if (state == ConnectionState::SwitchingGateway) {
+        LOGW << "Failed to get the Portal Config during the Gateway switch. " << msg;
+        onPortalFail(msg);
+        return;
+    }
     LOGI << "Failed to get the portal configuration, " << msg << " Treat the portal address as gateway.";
     tryGatewayLogin();
 }
@@ -368,7 +528,7 @@ void GPClient::gatewayLogin()
     }
 
     GatewayAuthenticatorParams params = GatewayAuthenticatorParams::fromPortalConfigResponse(portalConfig);
-    params.setClientos(settings::get("clientos", "Linux").toString());
+    params.setClientos(clientos());
 
     GatewayAuthenticator *gatewayAuth;
     gatewayAuth = new GatewayAuthenticator(currentGateway().address(), params);
@@ -382,7 +542,7 @@ void GPClient::gatewayLogin()
         gatewayAuth->deleteLater();
     });
 
-    updateConnectionStatus(ConnectionState::Authenticating);
+    updateUnlessSwitching(ConnectionState::Authenticating);
     gatewayAuth->authenticate();
 }
 
@@ -396,7 +556,7 @@ void GPClient::onGatewaySuccess(const QString &authCookie)
       gatewayAddresses.push_back(gw.address());
     }
     vpn->connect(currentGateway().address(), gatewayAddresses, portalConfig.username(), authCookie);
-    updateConnectionStatus(ConnectionState::Connecting);
+    updateUnlessSwitching(ConnectionState::Connecting);
 }
 
 void GPClient::onGatewayFail(const QString &msg)
@@ -437,21 +597,11 @@ void GPClient::portal(QString p)
     ui->portalInput->setText(p);
 }
 
-bool GPClient::connected() const
-{
-    return state == ConnectionState::Connected;
-}
-
+// The Gateways saved for the current Portal only: from its Portal Config, or the
+// Portal itself when it was used directly as a Gateway.
 QList<GPGateway> GPClient::allGateways() const
 {
-
-    QList<GPGateway> gateways;
-
-    for (auto g :settings::get_all("_gateways$") ){
-
-    	gateways.append(GPGateway::fromJson(settings::get(g).toString()));
-    }
-    return gateways;
+    return GPGateway::fromJson(settings::get(portal() + "_gateways").toString());
 }
 
 void GPClient::setAllGateways(QList<GPGateway> gateways)
@@ -459,7 +609,7 @@ void GPClient::setAllGateways(QList<GPGateway> gateways)
     LOGI << "Updating all the gateways...";
 
     settings::save(portal() + "_gateways", GPGateway::serialize(gateways));
-    populateGatewayMenu();
+    populateGateways();
 }
 
 GPGateway GPClient::currentGateway() const
@@ -481,13 +631,13 @@ void GPClient::setCurrentGateway(const GPGateway gateway)
     // Do not overwrite the portal input with the gateway address: the saved gateways
     // and the selected gateway are keyed by the portal address.
     settings::save(portal() + "_selectedGateway", gateway.name());
-    populateGatewayMenu();
+    populateGateways();
 }
 
 void GPClient::reset()
 {
     settings::clear();
-    populateGatewayMenu();
+    populateGateways();
     ui->portalInput->clear();
 }
 
@@ -504,11 +654,37 @@ void GPClient::onVPNConnected()
 
 void GPClient::onVPNDisconnected()
 {
-    const bool switchingGateway = state == ConnectionState::SwitchingGateway;
-    updateConnectionStatus(ConnectionState::Disconnected);
+    switchTimeout->stop();
 
-    if (switchingGateway) {
-        gatewayLogin();
+    // During a Gateway switch the old Tunnel (the one with a start time) went down:
+    // log in to the new Gateway and stay in SwitchingGateway until its Tunnel is up.
+    // If the new Tunnel goes down before it came up, the switch ends as a disconnect.
+    if (state == ConnectionState::SwitchingGateway && tunnelStartedAt.isValid()) {
+        tunnelStartedAt = QDateTime();
+        if (switchLoginFor(portalConfig.userAuthCookie()) == SwitchLogin::PortalThenGateway) {
+            LOGI << "No Portal Auth Cookie held for the Gateway switch, logging in to the Portal first...";
+            portalLogin();
+        } else {
+            gatewayLogin();
+        }
+        return;
+    }
+
+    updateConnectionStatus(ConnectionState::Disconnected);
+}
+
+// The old Tunnel never reported going down during a Gateway switch: show what the
+// VPN service reports instead of "Switching Gateway..." forever. A Tunnel still up runs
+// on the previous Gateway, so that one becomes current again.
+void GPClient::onSwitchTimeout()
+{
+    if (state == ConnectionState::SwitchingGateway && tunnelStartedAt.isValid()) {
+        LOGW << "The Tunnel did not go down for the Gateway switch, reading the VPN status again.";
+        initVpnStatus();
+        if (switchTimeoutRestoresPreviousGateway(state)) {
+            LOGW << "The Tunnel is still on the Gateway " << gatewayBeforeSwitch.name() << ", restoring it as the current Gateway.";
+            setCurrentGateway(gatewayBeforeSwitch);
+        }
     }
 }
 

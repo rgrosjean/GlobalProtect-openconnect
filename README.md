@@ -60,6 +60,7 @@ Install the Qt6 dependencies and OpenConnect:
 - QtWebEngine
 - QtWebSockets
 - QtDBus
+- QtSvg (and its image plugin)
 - openconnect v8.x
 - qtkeychain
 

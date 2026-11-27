@@ -38,3 +38,68 @@ ConnectionView presentConnection(ConnectionState state, qint64 tunnelSeconds)
     }
     return { "Not Connected", Shield::NotConnected, "Connect", true, VisibleView::Disconnected, {} };
 }
+
+GatewayChoice presentGateways(const QList<GPGateway> &gateways, const GPGateway &currentGateway, ConnectionState state)
+{
+    QList<GPGateway> listed = gateways;
+    if (listed.isEmpty() && !currentGateway.name().isEmpty()) {
+        listed.append(currentGateway);
+    }
+
+    QStringList names;
+    QStringList addresses;
+    for (const GPGateway &g : listed) {
+        names.append(g.name());
+        addresses.append(g.address());
+    }
+
+    // With a single Gateway (the Portal address used directly as a Gateway) there is
+    // nothing to switch to; while the Tunnel goes down or moves, no new switch can start.
+    const bool enabled = names.size() > 1 && state == ConnectionState::Connected;
+    return { names, addresses, int(names.indexOf(currentGateway.name())), enabled };
+}
+
+GatewayPick gatewayPickFor(ConnectionState state)
+{
+    switch (state) {
+    case ConnectionState::Disconnected:
+        return GatewayPick::Select;
+    case ConnectionState::Connected:
+        return GatewayPick::Switch;
+    default:
+        return GatewayPick::Ignore;
+    }
+}
+
+SwitchLogin switchLoginFor(const QString &portalAuthCookie)
+{
+    return portalAuthCookie.isEmpty() ? SwitchLogin::PortalThenGateway : SwitchLogin::Gateway;
+}
+
+GPGateway switchTargetAfterPortalLogin(const QList<GPGateway> &portalConfigGateways, const QString &pickedName, const GPGateway &preferred)
+{
+    for (const GPGateway &g : portalConfigGateways) {
+        if (g.name() == pickedName) {
+            return g;
+        }
+    }
+    return preferred;
+}
+
+bool switchTimeoutRestoresPreviousGateway(ConnectionState stateAfterTimeout)
+{
+    return stateAfterTimeout == ConnectionState::Connected || stateAfterTimeout == ConnectionState::Connecting;
+}
+
+QString shieldResource(Shield shield)
+{
+    switch (shield) {
+    case Shield::Connected:
+        return ":/images/shield_connected.svg";
+    case Shield::InProgress:
+        return ":/images/shield_in_progress.svg";
+    case Shield::NotConnected:
+        break;
+    }
+    return ":/images/shield_not_connected.svg";
+}
