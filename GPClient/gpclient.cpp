@@ -54,7 +54,7 @@ GPClient::GPClient(QWidget *parent, IVpn *vpn)
 
     // Initialize the context menu of system tray.
     initSystemTrayIcon();
-    setupMenu();
+    setupActionsMenu();
     initVpnStatus();
 
     // Centre once the height follows the visible view.
@@ -87,38 +87,38 @@ QIcon ellipsisIcon(const QColor &colour)
 
 // The "..." button in the top-right corner. Its entries reuse the tray's slots and its
 // Switch Gateway submenu, so every action is reachable without a system tray.
-void GPClient::setupMenu()
+void GPClient::setupActionsMenu()
 {
-    moreButton = new QToolButton(this);
-    moreButton->setPopupMode(QToolButton::InstantPopup);
-    moreButton->setToolTip("Menu");
-    moreButton->setIconSize(QSize(20, 20));
-    moreButton->setFixedSize(QSize(28, 28));
-    moreButton->setStyleSheet("QToolButton::menu-indicator { image: none; }");
-    moreButton->move(width() - moreButton->width() - 15, 15);
+    actionsButton = new QToolButton(this);
+    actionsButton->setPopupMode(QToolButton::InstantPopup);
+    actionsButton->setToolTip("Menu");
+    actionsButton->setIconSize(QSize(20, 20));
+    actionsButton->setFixedSize(QSize(28, 28));
+    actionsButton->setStyleSheet("QToolButton::menu-indicator { image: none; }");
+    actionsButton->move(width() - actionsButton->width() - 15, 15);
 
-    moreMenu = new QMenu(this);
-    moreMenu->addAction("Settings", this, &GPClient::onSettingsButtonClicked);
-    moreMenu->addMenu(gatewaySwitchMenu);
-    resetMenuAction = moreMenu->addAction("Reset", this, &GPClient::reset);
-    moreMenu->addAction("About", this, &GPClient::showAbout);
-    moreMenu->addAction("Quit", this, &GPClient::quit);
-    moreButton->setMenu(moreMenu);
-    updateMenuIcon();
+    actionsMenu = new QMenu(this);
+    actionsMenu->addAction("Settings", this, &GPClient::openSettings);
+    actionsMenu->addMenu(gatewaySwitchMenu);
+    resetMenuAction = actionsMenu->addAction("Reset", this, &GPClient::reset);
+    actionsMenu->addAction("About", this, &GPClient::showAbout);
+    actionsMenu->addAction("Quit", this, &GPClient::quit);
+    actionsButton->setMenu(actionsMenu);
+    updateActionsIcon();
 }
 
 // The dots use the palette's button text colour, so they follow a light or dark theme.
-void GPClient::updateMenuIcon()
+void GPClient::updateActionsIcon()
 {
-    moreButton->setIcon(ellipsisIcon(palette().buttonText().color()));
+    actionsButton->setIcon(ellipsisIcon(palette().buttonText().color()));
 }
 
 void GPClient::changeEvent(QEvent *event)
 {
     QMainWindow::changeEvent(event);
     // Palette events can arrive while setupUi() runs, before the button exists.
-    if (moreButton && (event->type() == QEvent::PaletteChange || event->type() == QEvent::ApplicationPaletteChange)) {
-        updateMenuIcon();
+    if (actionsButton && (event->type() == QEvent::PaletteChange || event->type() == QEvent::ApplicationPaletteChange)) {
+        updateActionsIcon();
     }
 }
 
@@ -127,7 +127,7 @@ void GPClient::showAbout()
     QMessageBox::about(this, "About GlobalProtect", aboutHtml(VERSION));
 }
 
-void GPClient::onSettingsButtonClicked()
+void GPClient::openSettings()
 {
     settingsDialog->setClientos(clientos());
     settingsDialog->setOsVersion(settings::get("os-version", QSysInfo::prettyProductName()).toString());
@@ -289,7 +289,7 @@ void GPClient::updateConnectionStatus(ConnectionState newState)
 
 // Applies an in-progress state, except during a Gateway switch: "Switching Gateway..."
 // lasts until the Tunnel is up on the new Gateway, through its login and connection.
-void GPClient::updateProgress(ConnectionState newState)
+void GPClient::updateUnlessSwitching(ConnectionState newState)
 {
     updateConnectionStatus(state == ConnectionState::SwitchingGateway ? state : newState);
 }
@@ -522,7 +522,7 @@ void GPClient::gatewayLogin()
         gatewayAuth->deleteLater();
     });
 
-    updateProgress(ConnectionState::Authenticating);
+    updateUnlessSwitching(ConnectionState::Authenticating);
     gatewayAuth->authenticate();
 }
 
@@ -536,7 +536,7 @@ void GPClient::onGatewaySuccess(const QString &authCookie)
       gatewayAddresses.push_back(gw.address());
     }
     vpn->connect(currentGateway().address(), gatewayAddresses, portalConfig.username(), authCookie);
-    updateProgress(ConnectionState::Connecting);
+    updateUnlessSwitching(ConnectionState::Connecting);
 }
 
 void GPClient::onGatewayFail(const QString &msg)

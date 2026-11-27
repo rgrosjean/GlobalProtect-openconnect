@@ -42,7 +42,7 @@ protected:
     void changeEvent(QEvent *event) override;
 
 private slots:
-    void onSettingsButtonClicked();
+    void openSettings();
     void showAbout();
     void onSettingsAccepted();
 
@@ -83,8 +83,8 @@ private:
     QAction *quitAction;
 
     SettingsDialog *settingsDialog;
-    QToolButton *moreButton { nullptr };
-    QMenu *moreMenu;
+    QToolButton *actionsButton { nullptr };
+    QMenu *actionsMenu;
     QAction *resetMenuAction;
 
     ConnectionState state { ConnectionState::Disconnected };
@@ -98,8 +98,8 @@ private:
     PortalConfigResponse portalConfig;
 
     void setupSettings();
-    void setupMenu();
-    void updateMenuIcon();
+    void setupActionsMenu();
+    void updateActionsIcon();
 
     void initSystemTrayIcon();
     void initVpnStatus();
@@ -107,7 +107,7 @@ private:
     void populateGatewayMenu(const QList<GPGateway> &gateways, const GPGateway &current);
     void populateGatewayInput(const QList<GPGateway> &gateways, const GPGateway &current);
     void updateConnectionStatus(ConnectionState newState);
-    void updateProgress(ConnectionState newState);
+    void updateUnlessSwitching(ConnectionState newState);
     qint64 tunnelSeconds() const;
     void switchGateway(int index);
     void showView(VisibleView view);
