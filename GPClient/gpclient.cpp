@@ -116,15 +116,15 @@ void GPClient::initVpnStatus() {
     int status = vpn->status();
 
     if (status == 1) {
-        ui->statusLabel->setText("Connecting...");
-        updateConnectionStatus(VpnStatus::pending);
+        updateConnectionStatus(ConnectionState::Connecting);
     } else if (status == 2) {
-        updateConnectionStatus(VpnStatus::connected);
+        // The Tunnel was already up when the client started; its real start time is unknown.
+        tunnelStartedAt = QDateTime::currentDateTime();
+        updateConnectionStatus(ConnectionState::Connected);
     } else if (status == 3) {
-        ui->statusLabel->setText("Disconnecting...");
-        updateConnectionStatus(VpnStatus::pending);
+        updateConnectionStatus(ConnectionState::Disconnecting);
     } else {
-        updateConnectionStatus(VpnStatus::disconnected);
+        updateConnectionStatus(ConnectionState::Disconnected);
     }
 }
 
@@ -151,48 +151,47 @@ void GPClient::populateGatewayMenu()
     }
 }
 
-void GPClient::updateConnectionStatus(const GPClient::VpnStatus &status)
+namespace {
+
+QString shieldImage(Shield shield)
 {
-    switch (status) {
-        case VpnStatus::disconnected:
-            ui->statusLabel->setText("Not Connected");
-            ui->statusImage->setStyleSheet("image: url(:/images/not_connected.png); padding: 15;");
-            ui->connectButton->setText("Connect");
-            ui->connectButton->setDisabled(false);
-            ui->portalInput->setReadOnly(false);
-
-            systemTrayIcon->setIcon(QIcon{ ":/images/not_connected.png" });
-            connectAction->setEnabled(true);
-            connectAction->setText("Connect");
-            gatewaySwitchMenu->setEnabled(true);
-            clearAction->setEnabled(true);
-            break;
-        case VpnStatus::pending:
-            ui->statusImage->setStyleSheet("image: url(:/images/pending.png); padding: 15;");
-            ui->connectButton->setDisabled(true);
-            ui->portalInput->setReadOnly(true);
-
-            systemTrayIcon->setIcon(QIcon{ ":/images/pending.png" });
-            connectAction->setEnabled(false);
-            gatewaySwitchMenu->setEnabled(false);
-            clearAction->setEnabled(false);
-            break;
-        case VpnStatus::connected:
-            ui->statusLabel->setText("Connected");
-            ui->statusImage->setStyleSheet("image: url(:/images/connected.png); padding: 15;");
-            ui->connectButton->setText("Disconnect");
-            ui->connectButton->setDisabled(false);
-            ui->portalInput->setReadOnly(true);
-
-            systemTrayIcon->setIcon(QIcon{ ":/images/connected.png" });
-            connectAction->setEnabled(true);
-            connectAction->setText("Disconnect");
-            gatewaySwitchMenu->setEnabled(true);
-            clearAction->setEnabled(false);
-            break;
-        default:
-            break;
+    switch (shield) {
+    case Shield::Connected:
+        return ":/images/connected.png";
+    case Shield::InProgress:
+        return ":/images/pending.png";
+    case Shield::NotConnected:
+    default:
+        return ":/images/not_connected.png";
     }
+}
+
+} // namespace
+
+// The only place that sets the status text, the main button and the tray Connect action:
+// it applies what the presenter returns for the state.
+void GPClient::updateConnectionStatus(ConnectionState newState)
+{
+    state = newState;
+
+    const qint64 tunnelSeconds = tunnelStartedAt.isValid()
+        ? tunnelStartedAt.secsTo(QDateTime::currentDateTime())
+        : 0;
+    const ConnectionView view = presentConnection(state, tunnelSeconds);
+    const QString image = shieldImage(view.shield);
+    const bool idle = state == ConnectionState::Disconnected;
+
+    ui->statusLabel->setText(view.statusText);
+    ui->statusImage->setStyleSheet(QString("image: url(%1); padding: 15;").arg(image));
+    ui->connectButton->setText(view.buttonText);
+    ui->connectButton->setEnabled(view.buttonEnabled);
+    ui->portalInput->setReadOnly(!idle);
+
+    systemTrayIcon->setIcon(QIcon{ image });
+    connectAction->setText(view.buttonText);
+    connectAction->setEnabled(view.buttonEnabled);
+    gatewaySwitchMenu->setEnabled(view.buttonEnabled);
+    clearAction->setEnabled(idle);
 }
 
 void GPClient::onSystemTrayActivated(QSystemTrayIcon::ActivationReason reason)
@@ -225,9 +224,7 @@ void GPClient::onGatewayChanged(QAction *action)
     setCurrentGateway(g);
 
     if (connected()) {
-        ui->statusLabel->setText("Switching Gateway...");
-        ui->connectButton->setEnabled(false);
-
+        updateConnectionStatus(ConnectionState::SwitchingGateway);
         vpn->disconnect();
         isSwitchingGateway = true;
     }
@@ -237,7 +234,6 @@ void GPClient::doConnect()
 {
     LOGI << "Start connecting...";
 
-    const auto btnText = ui->connectButton->text();
     const auto portal = this->portal();
 
     // Display the main window if portal is empty
@@ -246,7 +242,7 @@ void GPClient::doConnect()
         return;
     }
 
-    if (btnText.endsWith("Connect")) {
+    if (state == ConnectionState::Disconnected) {
         settings::save("portal", portal);
 
         // Login to the previously saved gateway
@@ -259,12 +255,14 @@ void GPClient::doConnect()
             LOGI << "Start portal login...";
             portalLogin();
         }
-    } else {
+    } else if (state == ConnectionState::Connected) {
         LOGI << "Start disconnecting the VPN...";
 
-        ui->statusLabel->setText("Disconnecting...");
-        updateConnectionStatus(VpnStatus::pending);
+        updateConnectionStatus(ConnectionState::Disconnecting);
         vpn->disconnect();
+    } else {
+        // A login, connection or disconnection is already in progress.
+        LOGI << "Busy, ignoring the request.";
     }
 }
 
@@ -292,8 +290,7 @@ void GPClient::portalLogin()
         portalAuth->deleteLater();
     });
 
-    ui->statusLabel->setText("Authenticating...");
-    updateConnectionStatus(VpnStatus::pending);
+    updateConnectionStatus(ConnectionState::Authenticating);
     portalAuth->authenticate();
 }
 
@@ -334,7 +331,7 @@ void GPClient::onPortalFail(const QString &msg)
         openMessageBox("Portal authentication failed.", msg);
     }
 
-    updateConnectionStatus(VpnStatus::disconnected);
+    updateConnectionStatus(ConnectionState::Disconnected);
 }
 
 void GPClient::tryGatewayLogin()
@@ -381,8 +378,7 @@ void GPClient::gatewayLogin()
         gatewayAuth->deleteLater();
     });
 
-    ui->statusLabel->setText("Authenticating...");
-    updateConnectionStatus(VpnStatus::pending);
+    updateConnectionStatus(ConnectionState::Authenticating);
     gatewayAuth->authenticate();
 }
 
@@ -396,8 +392,7 @@ void GPClient::onGatewaySuccess(const QString &authCookie)
       gatewayAddresses.push_back(gw.address());
     }
     vpn->connect(currentGateway().address(), gatewayAddresses, portalConfig.username(), authCookie);
-    ui->statusLabel->setText("Connecting...");
-    updateConnectionStatus(VpnStatus::pending);
+    updateConnectionStatus(ConnectionState::Connecting);
 }
 
 void GPClient::onGatewayFail(const QString &msg)
@@ -414,7 +409,7 @@ void GPClient::onGatewayFail(const QString &msg)
         openMessageBox("Gateway authentication failed.", msg);
     }
 
-    updateConnectionStatus(VpnStatus::disconnected);
+    updateConnectionStatus(ConnectionState::Disconnected);
 }
 
 void GPClient::activate()
@@ -440,8 +435,7 @@ void GPClient::portal(QString p)
 
 bool GPClient::connected() const
 {
-    const QString statusText = ui->statusLabel->text();
-    return statusText.contains("Connected") && !statusText.contains("Not");
+    return state == ConnectionState::Connected;
 }
 
 QList<GPGateway> GPClient::allGateways() const
@@ -501,12 +495,14 @@ void GPClient::quit()
 
 void GPClient::onVPNConnected()
 {
-    updateConnectionStatus(VpnStatus::connected);
+    tunnelStartedAt = QDateTime::currentDateTime();
+    updateConnectionStatus(ConnectionState::Connected);
 }
 
 void GPClient::onVPNDisconnected()
 {
-    updateConnectionStatus(VpnStatus::disconnected);
+    tunnelStartedAt = QDateTime();
+    updateConnectionStatus(ConnectionState::Disconnected);
 
     if (isSwitchingGateway) {
         gatewayLogin();
@@ -516,7 +512,8 @@ void GPClient::onVPNDisconnected()
 
 void GPClient::onVPNError(QString errorMessage)
 {
-    updateConnectionStatus(VpnStatus::disconnected);
+    tunnelStartedAt = QDateTime();
+    updateConnectionStatus(ConnectionState::Disconnected);
     openMessageBox("Failed to connect", errorMessage);
 }
 

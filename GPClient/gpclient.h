@@ -1,11 +1,13 @@
 #ifndef GPCLIENT_H
 #define GPCLIENT_H
 
+#include <QtCore/QDateTime>
 #include <QtWidgets/QMainWindow>
 #include <QtWidgets/QSystemTrayIcon>
 #include <QtWidgets/QMenu>
 #include <QtWidgets/QPushButton>
 
+#include "connectionview.h"
 #include "portalconfigresponse.h"
 #include "settingsdialog.h"
 #include "vpn.h"
@@ -59,13 +61,6 @@ private slots:
     void onVPNLogAvailable(QString log);
 
 private:
-    enum class VpnStatus
-    {
-        disconnected,
-        pending,
-        connected
-    };
-
     Ui::GPClient *ui;
     IVpn *vpn;
 
@@ -81,6 +76,9 @@ private:
     SettingsDialog *settingsDialog;
     QPushButton *settingsButton;
 
+    ConnectionState state { ConnectionState::Disconnected };
+    QDateTime tunnelStartedAt;  // when the VPN reported connected; invalid otherwise
+
     bool isQuickConnect { false };
     bool isSwitchingGateway { false };
     PortalConfigResponse portalConfig;
@@ -90,7 +88,7 @@ private:
     void initSystemTrayIcon();
     void initVpnStatus();
     void populateGatewayMenu();
-    void updateConnectionStatus(const VpnStatus &status);
+    void updateConnectionStatus(ConnectionState newState);
 
     void portalLogin();
     void tryGatewayLogin();
