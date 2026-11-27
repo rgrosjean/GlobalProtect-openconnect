@@ -328,6 +328,12 @@ void GPClient::onGatewayInputActivated(int index)
 // connected view's Gateway dropdown. The index is into allGateways().
 void GPClient::switchGateway(int index)
 {
+    const GatewayPick pick = gatewayPickFor(state);
+    if (pick == GatewayPick::Ignore) {
+        LOGI << "Busy, ignoring the Gateway switch.";
+        return;
+    }
+
     const QList<GPGateway> gateways = allGateways();
     if (index < 0 || index >= gateways.size()) {
         return;
@@ -342,7 +348,7 @@ void GPClient::switchGateway(int index)
 
     setCurrentGateway(g);
 
-    if (connected()) {
+    if (pick == GatewayPick::Switch) {
         updateConnectionStatus(ConnectionState::SwitchingGateway);
         vpn->disconnect();
     }
@@ -549,11 +555,6 @@ QString GPClient::portal() const
 void GPClient::portal(QString p)
 {
     ui->portalInput->setText(p);
-}
-
-bool GPClient::connected() const
-{
-    return state == ConnectionState::Connected;
 }
 
 // The Gateways saved for the current Portal only: from its Portal Config, or the

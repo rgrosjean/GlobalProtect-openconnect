@@ -52,6 +52,18 @@ GatewayChoice presentGateways(const QStringList &gatewayNames, const QString &cu
     return { names, int(names.indexOf(currentGateway)), enabled };
 }
 
+GatewayPick gatewayPickFor(ConnectionState state)
+{
+    switch (state) {
+    case ConnectionState::Disconnected:
+        return GatewayPick::Select;
+    case ConnectionState::Connected:
+        return GatewayPick::Switch;
+    default:
+        return GatewayPick::Ignore;
+    }
+}
+
 QString shieldResource(Shield shield)
 {
     switch (shield) {

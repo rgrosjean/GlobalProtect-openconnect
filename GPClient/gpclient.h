@@ -109,8 +109,6 @@ private:
     void tryGatewayLogin();
     void gatewayLogin();
 
-    bool connected() const;
-
     QList<GPGateway> allGateways() const;
     void setAllGateways(QList<GPGateway> gateways);
 };

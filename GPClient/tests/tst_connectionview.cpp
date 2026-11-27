@@ -12,6 +12,7 @@
 Q_DECLARE_METATYPE(ConnectionState)
 Q_DECLARE_METATYPE(Shield)
 Q_DECLARE_METATYPE(VisibleView)
+Q_DECLARE_METATYPE(GatewayPick)
 
 class TestConnectionView : public QObject
 {
@@ -133,6 +134,29 @@ private slots:
 
         QCOMPARE(c.currentIndex, 1);
         QCOMPARE(c.enabled, enabled);
+    }
+
+    // Picking a Gateway moves the Tunnel when Connected, only selects it when
+    // Disconnected, and is ignored while a login or Tunnel change is in progress.
+    void pickingGateway_data()
+    {
+        QTest::addColumn<ConnectionState>("state");
+        QTest::addColumn<GatewayPick>("pick");
+
+        QTest::newRow("Disconnected") << ConnectionState::Disconnected << GatewayPick::Select;
+        QTest::newRow("Authenticating") << ConnectionState::Authenticating << GatewayPick::Ignore;
+        QTest::newRow("Connecting") << ConnectionState::Connecting << GatewayPick::Ignore;
+        QTest::newRow("Connected") << ConnectionState::Connected << GatewayPick::Switch;
+        QTest::newRow("Disconnecting") << ConnectionState::Disconnecting << GatewayPick::Ignore;
+        QTest::newRow("SwitchingGateway") << ConnectionState::SwitchingGateway << GatewayPick::Ignore;
+    }
+
+    void pickingGateway()
+    {
+        QFETCH(ConnectionState, state);
+        QFETCH(GatewayPick, pick);
+
+        QCOMPARE(gatewayPickFor(state), pick);
     }
 
     void mapsShieldToResource_data()

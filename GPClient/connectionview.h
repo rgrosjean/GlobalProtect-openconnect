@@ -51,6 +51,15 @@ struct GatewayChoice {
 // ConnectionState to the Gateway dropdown.
 GatewayChoice presentGateways(const QStringList &gatewayNames, const QString &currentGateway, ConnectionState state);
 
+// What picking another Gateway does.
+enum class GatewayPick {
+    Ignore,  // a login or Tunnel change is in progress
+    Select,  // no Tunnel: the Gateway becomes the current one for the next connection
+    Switch   // the Tunnel moves to the Gateway
+};
+
+GatewayPick gatewayPickFor(ConnectionState state);
+
 // Qt resource path of the SVG icon drawn for a shield, used by the window and the tray.
 QString shieldResource(Shield shield);
 
