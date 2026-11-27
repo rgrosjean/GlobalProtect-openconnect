@@ -77,6 +77,11 @@ SwitchLogin switchLoginFor(const QString &portalAuthCookie);
 // Portal Config still lists it, otherwise the preferred one, as a normal Portal login.
 GPGateway switchTargetAfterPortalLogin(const QList<GPGateway> &portalConfigGateways, const QString &pickedName, const GPGateway &preferred);
 
+// Whether a Gateway switch whose old Tunnel never went down gives the current Gateway
+// back to the previous one, given the state read from the VPN when the fallback timer
+// fires: a Tunnel still up or coming up runs on the previous Gateway.
+bool switchTimeoutRestoresPreviousGateway(ConnectionState stateAfterTimeout);
+
 // Qt resource path of the SVG icon drawn for a shield, used by the window and the tray.
 QString shieldResource(Shield shield);
 

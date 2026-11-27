@@ -365,6 +365,7 @@ void GPClient::switchGateway(int index)
         return;
     }
 
+    gatewayBeforeSwitch = currentGateway();
     setCurrentGateway(g);
 
     if (pick == GatewayPick::Switch) {
@@ -673,12 +674,17 @@ void GPClient::onVPNDisconnected()
 }
 
 // The old Tunnel never reported going down during a Gateway switch: show what the
-// VPN service reports instead of "Switching Gateway..." forever.
+// VPN service reports instead of "Switching Gateway..." forever. A Tunnel still up runs
+// on the previous Gateway, so that one becomes current again.
 void GPClient::onSwitchTimeout()
 {
     if (state == ConnectionState::SwitchingGateway && tunnelStartedAt.isValid()) {
         LOGW << "The Tunnel did not go down for the Gateway switch, reading the VPN status again.";
         initVpnStatus();
+        if (switchTimeoutRestoresPreviousGateway(state)) {
+            LOGW << "The Tunnel is still on the Gateway " << gatewayBeforeSwitch.name() << ", restoring it as the current Gateway.";
+            setCurrentGateway(gatewayBeforeSwitch);
+        }
     }
 }
 

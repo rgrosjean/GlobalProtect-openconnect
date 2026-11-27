@@ -215,6 +215,27 @@ private slots:
         QCOMPARE(g.name(), QString("Paris"));
     }
 
+    // The switch fallback timer read the VPN status: while the old Tunnel is still up
+    // (or coming up) it runs on the previous Gateway, which becomes current again.
+    void switchTimeoutWithOldTunnelUp_data()
+    {
+        QTest::addColumn<ConnectionState>("state");
+        QTest::addColumn<bool>("restores");
+
+        QTest::newRow("Connected") << ConnectionState::Connected << true;
+        QTest::newRow("Connecting") << ConnectionState::Connecting << true;
+        QTest::newRow("Disconnecting") << ConnectionState::Disconnecting << false;
+        QTest::newRow("Disconnected") << ConnectionState::Disconnected << false;
+    }
+
+    void switchTimeoutWithOldTunnelUp()
+    {
+        QFETCH(ConnectionState, state);
+        QFETCH(bool, restores);
+
+        QCOMPARE(switchTimeoutRestoresPreviousGateway(state), restores);
+    }
+
     // The resource must exist and render, and be the right colour: grey, amber, green.
     void shieldRendersInItsColour_data()
     {

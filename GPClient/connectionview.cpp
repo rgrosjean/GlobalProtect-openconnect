@@ -86,6 +86,11 @@ GPGateway switchTargetAfterPortalLogin(const QList<GPGateway> &portalConfigGatew
     return preferred;
 }
 
+bool switchTimeoutRestoresPreviousGateway(ConnectionState stateAfterTimeout)
+{
+    return stateAfterTimeout == ConnectionState::Connected || stateAfterTimeout == ConnectionState::Connecting;
+}
+
 QString shieldResource(Shield shield)
 {
     switch (shield) {
