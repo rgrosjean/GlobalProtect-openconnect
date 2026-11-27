@@ -30,7 +30,7 @@ jobs:
             build-essential git wget ca-certificates openssl \
             qt6-base-dev qt6-websockets-dev qt6-webengine-dev qtkeychain-qt6-dev
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
 
