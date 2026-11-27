@@ -2,6 +2,7 @@
 #define GPCLIENT_H
 
 #include <QtCore/QDateTime>
+#include <QtCore/QTimer>
 #include <QtWidgets/QMainWindow>
 #include <QtWidgets/QSystemTrayIcon>
 #include <QtWidgets/QMenu>
@@ -48,6 +49,8 @@ private slots:
 
     void onSystemTrayActivated(QSystemTrayIcon::ActivationReason reason);
     void onGatewayChanged(QAction *action);
+    void onGatewayInputActivated(int index);
+    void onTunnelTimerTick();
 
     void onPortalSuccess(const PortalConfigResponse portalConfig, const QString region);
     void onPortalPreloginFail(const QString msg);
@@ -81,7 +84,10 @@ private:
     QAction *resetMenuAction;
 
     ConnectionState state { ConnectionState::Disconnected };
-    QDateTime tunnelStartedAt;  // when the state became Connected; invalid once Disconnected
+    // When the current Tunnel came up; invalid while no Tunnel is up (including the
+    // part of a Gateway switch after the old Tunnel went down).
+    QDateTime tunnelStartedAt;
+    QTimer *tunnelTimer;  // refreshes the "Active for" text once per second while Connected
 
     bool isQuickConnect { false };
     PortalConfigResponse portalConfig;
@@ -92,7 +98,11 @@ private:
     void initSystemTrayIcon();
     void initVpnStatus();
     void populateGatewayMenu();
+    void populateGatewayInput();
     void updateConnectionStatus(ConnectionState newState);
+    void updateProgress(ConnectionState newState);
+    qint64 tunnelSeconds() const;
+    void switchGateway(int index);
     void showView(VisibleView view);
 
     void portalLogin();
