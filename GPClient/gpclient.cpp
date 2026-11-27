@@ -287,7 +287,7 @@ void GPClient::updateConnectionStatus(ConnectionState newState)
     systemTrayIcon->setIcon(shieldIcon);
     connectAction->setText(shown.buttonText);
     connectAction->setEnabled(shown.buttonEnabled);
-    gatewaySwitchMenu->setEnabled(shown.buttonEnabled);
+    gatewaySwitchMenu->setEnabled(gatewayPickFor(state) != GatewayPick::Ignore);
     clearAction->setEnabled(idle);
     resetMenuAction->setEnabled(idle);
 }
@@ -682,7 +682,6 @@ void GPClient::onVPNDisconnected()
 // Tunnel recovers, or in disconnected() when openconnect gives up and exits.
 void GPClient::onVPNReconnecting()
 {
-    LOGW << "The Tunnel was lost, openconnect is reconnecting...";
     updateUnlessSwitching(ConnectionState::Reconnecting);
 }
 

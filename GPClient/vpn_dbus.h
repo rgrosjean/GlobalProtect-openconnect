@@ -28,7 +28,7 @@ public:
 signals: // SIGNALS
   void connected();
   void disconnected();
-  void reconnecting();
+    void reconnecting();
   void error(QString errorMessage);
   void logAvailable(QString log);
 };

@@ -45,8 +45,7 @@ public slots:
 private slots:
     void onProcessStarted();
     void onProcessError(QProcess::ProcessError error);
-    void onProcessStdout();
-    void onProcessStderr();
+    void onProcessOutput();
     void onProcessFinished(int exitCode, QProcess::ExitStatus exitStatus);
 
 private:
@@ -55,7 +54,7 @@ private:
     int vpnStatus = GPService::VpnNotConnected;
 
     void log(QString msg);
-    void applyTunnelEvents(const QString &output);
+    void applyTunnelEvent(const QString &line);
     bool isValidVersion(QString &bin);
     static QString findBinary();
     static QString extraOpenconnectArgs(const QString &gateway);
