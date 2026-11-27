@@ -38,3 +38,16 @@ ConnectionView presentConnection(ConnectionState state, qint64 tunnelSeconds)
     }
     return { "Not Connected", Shield::NotConnected, "Connect", true, VisibleView::Disconnected, {} };
 }
+
+QString shieldResource(Shield shield)
+{
+    switch (shield) {
+    case Shield::Connected:
+        return ":/images/shield_connected.svg";
+    case Shield::InProgress:
+        return ":/images/shield_in_progress.svg";
+    case Shield::NotConnected:
+        break;
+    }
+    return ":/images/shield_not_connected.svg";
+}

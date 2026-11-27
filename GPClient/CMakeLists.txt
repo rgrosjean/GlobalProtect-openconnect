@@ -104,6 +104,7 @@ target_link_libraries(gpclient
     Qt6::WebEngineCore
     Qt6::WebEngineWidgets
     Qt6::DBus
+    Qt6::Svg
     QtSignals
     ${QTKEYCHAIN_LIBRARIES}
 )

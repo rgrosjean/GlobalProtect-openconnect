@@ -13,9 +13,10 @@ endif()
 add_executable(tst_connectionview
     tst_connectionview.cpp
     ../connectionview.cpp
+    ../resources.qrc
 )
 target_include_directories(tst_connectionview PRIVATE ${CMAKE_SOURCE_DIR}/GPClient)
-target_link_libraries(tst_connectionview Qt6::Test Qt6::Core)
+target_link_libraries(tst_connectionview Qt6::Test Qt6::Core Qt6::Gui Qt6::Svg)
 add_test(NAME tst_connectionview COMMAND tst_connectionview)
 set_tests_properties(tst_connectionview PROPERTIES TIMEOUT 60)
 

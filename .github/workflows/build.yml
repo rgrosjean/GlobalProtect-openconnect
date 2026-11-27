@@ -28,7 +28,7 @@ jobs:
           apt-get update
           DEBIAN_FRONTEND=noninteractive apt-get install -y \
             build-essential git wget ca-certificates openssl \
-            qt6-base-dev qt6-websockets-dev qt6-webengine-dev qtkeychain-qt6-dev
+            qt6-base-dev qt6-websockets-dev qt6-webengine-dev qt6-svg-dev qt6-svg-plugins qtkeychain-qt6-dev
 
       - uses: actions/checkout@v5
         with:
