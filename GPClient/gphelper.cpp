@@ -18,23 +18,35 @@ using namespace QKeychain;
 
 QNetworkAccessManager* gpclient::helper::networkManager = new QNetworkAccessManager;
 
+static const char *certificateErrorProperty = "gpclientCertificateError";
+
 QNetworkReply* gpclient::helper::createRequest(QString url, QByteArray params)
 {
     QNetworkRequest request(url);
 
-    // Skip the ssl verifying
+    // Verify the server certificate against the system trust store, unless the
+    // user opted out for a Portal with a self-signed certificate
     QSslConfiguration conf = request.sslConfiguration();
-    conf.setPeerVerifyMode(QSslSocket::VerifyNone);
+    if (settings::get("insecure-tls", false).toBool()) {
+        LOGW << "TLS certificate verification is disabled (insecure-tls=true) for " << request.url().host();
+        conf.setPeerVerifyMode(QSslSocket::VerifyNone);
+    }
     conf.setSslOption(QSsl::SslOptionDisableLegacyRenegotiation, false);
     request.setSslConfiguration(conf);
 
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/x-www-form-urlencoded");
     request.setHeader(QNetworkRequest::UserAgentHeader, userAgent());
 
-    if (params == nullptr) {
-        return networkManager->post(request, QByteArray(nullptr));
-    }
-    return networkManager->post(request, params);
+    auto *reply = networkManager->post(request, params == nullptr ? QByteArray(nullptr) : params);
+
+    // Remember that the certificate was rejected, to tell it apart from other
+    // handshake failures (no shared protocol or cipher, ...)
+    QObject::connect(reply, &QNetworkReply::sslErrors, reply, [reply](const QList<QSslError> &errors) {
+        if (!errors.isEmpty()) {
+            reply->setProperty(certificateErrorProperty, true);
+        }
+    });
+    return reply;
 }
 
 QString gpclient::helper::clientos()
@@ -98,6 +110,21 @@ QString gpclient::helper::hostId()
 QString gpclient::helper::redact(const QString &secret)
 {
     return secret.isEmpty() ? "<empty>" : QString("<redacted, %1 chars>").arg(secret.length());
+}
+
+bool gpclient::helper::isCertificateError(const QNetworkReply *reply)
+{
+    return reply->error() == QNetworkReply::SslHandshakeFailedError
+        && reply->property(certificateErrorProperty).toBool();
+}
+
+QString gpclient::helper::certificateErrorMessage(const QString &role, const QNetworkReply *reply)
+{
+    const auto url = reply->url();
+    const auto address = url.port() > 0 ? QString("%1:%2").arg(url.host()).arg(url.port()) : url.host();
+    return QString("The TLS certificate of the %1 %2 could not be verified: %3.\n\n"
+                   "If you trust this %1, add insecure-tls=true under [General] in %4 and connect again.")
+        .arg(role, address, reply->errorString(), settings::_settings->fileName());
 }
 
 QString gpclient::helper::userAgent()

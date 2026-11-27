@@ -11,6 +11,9 @@ set(CMAKE_AUTOUIC ON)
 file(STRINGS "VERSION" version)
 project(GlobalProtect-openconnect LANGUAGES CXX)
 
+# Adds the BUILD_TESTING option (ON by default) and enables ctest
+include(CTest)
+
 # Set the CMAKE_INSTALL_PREFIX to /usr if not specified
 if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
     set(CMAKE_INSTALL_PREFIX "/usr" CACHE PATH "The default install prefix" FORCE)

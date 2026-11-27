@@ -41,7 +41,12 @@ void PortalAuthenticator::onPreloginFinished()
 
     if (reply->error()) {
         LOGE << QString("Error occurred while accessing %1, %2").arg(preloginUrl, reply->errorString());
-        emit preloginFailed("Error occurred on the portal prelogin interface.");
+        if (isCertificateError(reply)) {
+            // Do not fall back to a Gateway login on the same host, it would fail the same way
+            emit fail(certificateErrorMessage("Portal", reply));
+        } else {
+            emit preloginFailed("Error occurred on the portal prelogin interface.");
+        }
         delete reply;
         return;
     }
@@ -182,6 +187,17 @@ void PortalAuthenticator::onFetchConfigFinished()
 
     if (reply->error()) {
         LOGE << QString("Failed to fetch the portal config from %1, %2").arg(configUrl).arg(reply->errorString());
+
+        if (isCertificateError(reply)) {
+            // Stop the connection: retrying with other credentials would fail the same way
+            if (standardLoginWindow) {
+                // Closing the window would otherwise report a cancelled login
+                disconnect(standardLoginWindow, &StandardLoginWindow::rejected, this, nullptr);
+                standardLoginWindow->close();
+            }
+            emit fail(certificateErrorMessage("Portal", reply));
+            return;
+        }
 
         // Login failed, enable the fields of the normal login window
         if (standardLoginWindow) {

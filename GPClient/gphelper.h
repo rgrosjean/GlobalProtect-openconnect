@@ -41,6 +41,14 @@ namespace gpclient {
         // Describe a secret for logging without revealing it
         QString redact(const QString &secret);
 
+        // Whether a request made by createRequest failed because the server
+        // certificate could not be verified
+        bool isCertificateError(const QNetworkReply *reply);
+
+        // User-facing message for a certificate failure: the role ("Portal" or "Gateway"),
+        // the host, the TLS error reported by Qt, and the insecure-tls opt-out
+        QString certificateErrorMessage(const QString &role, const QNetworkReply *reply);
+
         // Persistent web profile for the SAML/CAS login, so the identity provider
         // (e.g. Microsoft) remembers the account between runs.
         QWebEngineProfile* webProfile();
@@ -52,7 +60,7 @@ namespace gpclient {
         namespace settings {
 
             extern QSettings *_settings;
-            static const QStringList reservedKeys {"extraArgs", "clientos", "os-version", "client-version", "host-id"};
+            static const QStringList reservedKeys {"extraArgs", "clientos", "os-version", "client-version", "host-id", "insecure-tls"};
 
             QVariant get(const QString &key, const QVariant &defaultValue = QVariant());
             QStringList get_all(const QString &key, const QVariant &defaultValue = QVariant());

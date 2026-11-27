@@ -49,6 +49,17 @@ void GatewayAuthenticator::onLoginFinished()
     if (reply->error() || response.contains("Authentication failure")) {
         LOGE << QString("Failed to login the gateway at %1, %2").arg(loginUrl, reply->errorString());
 
+        if (isCertificateError(reply)) {
+            // Stop the connection: retrying with other credentials would fail the same way
+            if (standardLoginWindow) {
+                // Closing the window would otherwise report a cancelled login
+                disconnect(standardLoginWindow, &StandardLoginWindow::rejected, this, nullptr);
+                standardLoginWindow->close();
+            }
+            emit fail(certificateErrorMessage("Gateway", reply));
+            return;
+        }
+
         if (standardLoginWindow) {
             standardLoginWindow->setProcessing(false);
             openMessageBox("Gateway login failed.", "Please check your credentials and try again.");
@@ -88,7 +99,8 @@ void GatewayAuthenticator::onPreloginFinished()
     if (reply->error()) {
         LOGE << QString("Failed to prelogin the gateway at %1, %2").arg(preloginUrl, reply->errorString());
 
-        emit fail("Error occurred on the gateway prelogin interface.");
+        emit fail(isCertificateError(reply) ? certificateErrorMessage("Gateway", reply)
+                                            : "Error occurred on the gateway prelogin interface.");
         return;
     }
 

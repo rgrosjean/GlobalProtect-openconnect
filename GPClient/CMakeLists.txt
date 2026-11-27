@@ -117,3 +117,7 @@ install(TARGETS gpclient DESTINATION bin)
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/com.yuezk.qt.gpclient.metainfo.xml" DESTINATION share/metainfo)
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/com.yuezk.qt.gpclient.desktop" DESTINATION share/applications)
 install(FILES "com.yuezk.qt.gpclient.svg" DESTINATION share/icons/hicolor/scalable/apps)
+
+if (BUILD_TESTING)
+    add_subdirectory(tests)
+endif()
