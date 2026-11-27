@@ -365,6 +365,7 @@ void GPClient::switchGateway(int index)
         return;
     }
 
+    gatewayBeforeSwitch = currentGateway();
     setCurrentGateway(g);
 
     if (pick == GatewayPick::Switch) {
@@ -434,7 +435,7 @@ void GPClient::portalLogin()
         portalAuth->deleteLater();
     });
 
-    updateConnectionStatus(ConnectionState::Authenticating);
+    updateUnlessSwitching(ConnectionState::Authenticating);
     portalAuth->authenticate();
 }
 
@@ -450,6 +451,14 @@ void GPClient::onPortalSuccess(const PortalConfigResponse portalConfig, const QS
     }
 
     GPGateway gateway = filterPreferredGateway(portalConfig.allGateways(), region);
+    // A Portal login run for a Gateway switch ends on the Gateway the user picked.
+    if (state == ConnectionState::SwitchingGateway) {
+        const QString picked = currentGateway().name();
+        gateway = switchTargetAfterPortalLogin(portalConfig.allGateways(), picked, gateway);
+        if (gateway.name() != picked) {
+            LOGW << "The Portal Config no longer lists the Gateway " << picked << ", switching to the preferred Gateway " << gateway.name() << " instead.";
+        }
+    }
     setAllGateways(portalConfig.allGateways());
     setCurrentGateway(gateway);
     this->portalConfig = portalConfig;
@@ -459,12 +468,23 @@ void GPClient::onPortalSuccess(const PortalConfigResponse portalConfig, const QS
 
 void GPClient::onPortalPreloginFail(const QString msg)
 {
+    // During a Gateway switch the Portal is known to work as a Portal: a failure ends the switch.
+    if (state == ConnectionState::SwitchingGateway) {
+        LOGW << "Portal prelogin failed during the Gateway switch. " << msg;
+        onPortalFail(msg);
+        return;
+    }
     LOGI << "Portal prelogin failed, treat the portal address as a gateway." << msg;
     tryGatewayLogin();
 }
 
 void GPClient::onPortalConfigFail(const QString msg)
 {
+    if (state == ConnectionState::SwitchingGateway) {
+        LOGW << "Failed to get the Portal Config during the Gateway switch. " << msg;
+        onPortalFail(msg);
+        return;
+    }
     LOGI << "Failed to get the portal configuration, " << msg << " Treat the portal address as gateway.";
     tryGatewayLogin();
 }
@@ -641,7 +661,12 @@ void GPClient::onVPNDisconnected()
     // If the new Tunnel goes down before it came up, the switch ends as a disconnect.
     if (state == ConnectionState::SwitchingGateway && tunnelStartedAt.isValid()) {
         tunnelStartedAt = QDateTime();
-        gatewayLogin();
+        if (switchLoginFor(portalConfig.userAuthCookie()) == SwitchLogin::PortalThenGateway) {
+            LOGI << "No Portal Auth Cookie held for the Gateway switch, logging in to the Portal first...";
+            portalLogin();
+        } else {
+            gatewayLogin();
+        }
         return;
     }
 
@@ -649,12 +674,17 @@ void GPClient::onVPNDisconnected()
 }
 
 // The old Tunnel never reported going down during a Gateway switch: show what the
-// VPN service reports instead of "Switching Gateway..." forever.
+// VPN service reports instead of "Switching Gateway..." forever. A Tunnel still up runs
+// on the previous Gateway, so that one becomes current again.
 void GPClient::onSwitchTimeout()
 {
     if (state == ConnectionState::SwitchingGateway && tunnelStartedAt.isValid()) {
         LOGW << "The Tunnel did not go down for the Gateway switch, reading the VPN status again.";
         initVpnStatus();
+        if (switchTimeoutRestoresPreviousGateway(state)) {
+            LOGW << "The Tunnel is still on the Gateway " << gatewayBeforeSwitch.name() << ", restoring it as the current Gateway.";
+            setCurrentGateway(gatewayBeforeSwitch);
+        }
     }
 }
 

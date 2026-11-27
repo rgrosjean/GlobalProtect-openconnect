@@ -63,6 +63,25 @@ enum class GatewayPick {
 
 GatewayPick gatewayPickFor(ConnectionState state);
 
+// Which login a Gateway switch runs once the old Tunnel is down.
+enum class SwitchLogin {
+    Gateway,           // straight to the picked Gateway, with the Portal Auth Cookie held
+    PortalThenGateway  // no Portal Auth Cookie held (after a quick connect): Portal login first
+};
+
+// A Gateway accepts the Portal Auth Cookie of the last Portal login, so the switch is
+// silent; without one it answers with a new SAML Login, so the Portal login runs first.
+SwitchLogin switchLoginFor(const QString &portalAuthCookie);
+
+// The Gateway a switch logs in to after its Portal login: the picked one if the new
+// Portal Config still lists it, otherwise the preferred one, as a normal Portal login.
+GPGateway switchTargetAfterPortalLogin(const QList<GPGateway> &portalConfigGateways, const QString &pickedName, const GPGateway &preferred);
+
+// Whether a Gateway switch whose old Tunnel never went down gives the current Gateway
+// back to the previous one, given the state read from the VPN when the fallback timer
+// fires: a Tunnel still up or coming up runs on the previous Gateway.
+bool switchTimeoutRestoresPreviousGateway(ConnectionState stateAfterTimeout);
+
 // Qt resource path of the SVG icon drawn for a shield, used by the window and the tray.
 QString shieldResource(Shield shield);
 

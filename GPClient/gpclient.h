@@ -93,6 +93,7 @@ private:
     QDateTime tunnelStartedAt;
     QTimer *tunnelTimer;  // refreshes the "Active for" text once per second while Connected
     QTimer *switchTimeout;  // ends a Gateway switch whose old Tunnel never reports going down
+    GPGateway gatewayBeforeSwitch;  // the Gateway of the old Tunnel during a Gateway switch
 
     bool isQuickConnect { false };
     PortalConfigResponse portalConfig;
