@@ -8,6 +8,7 @@
 #include "INIReader.h"
 #include "gpservice.h"
 #include "gpserviceadaptor.h"
+#include "tunnelevent.h"
 
 GPService::GPService(QObject *parent)
     : QObject(parent)
@@ -196,20 +197,52 @@ void GPService::onProcessError(QProcess::ProcessError error)
 
 void GPService::onProcessStdout()
 {
-    QString output = openconnect->readAllStandardOutput();
+    const QString output = openconnect->readAllStandardOutput();
 
     log(output);
-    if (output.indexOf("Connected as") >= 0 ||
-        output.indexOf("Configured as") >= 0 ||
-        output.indexOf("Configurado como") >= 0) {
-        vpnStatus = GPService::VpnConnected;
-        emit connected();
-    }
+    applyTunnelEvents(output);
 }
 
+// openconnect prints errors, such as a dead peer, on stderr and progress on stdout.
 void GPService::onProcessStderr()
 {
-    log(openconnect->readAllStandardError());
+    const QString output = openconnect->readAllStandardError();
+
+    log(output);
+    applyTunnelEvents(output);
+}
+
+// Moves the status along what the openconnect output says about the Tunnel.
+// A lost Tunnel is only reported once it was up, and a recovery only after a loss:
+// the same messages are printed while the Tunnel first comes up.
+void GPService::applyTunnelEvents(const QString &output)
+{
+    for (const QString &line : output.split('\n')) {
+        switch (tunnelEventFor(line)) {
+        case TunnelEvent::Configured:
+            if (vpnStatus == GPService::VpnConnecting || vpnStatus == GPService::VpnReconnecting) {
+                vpnStatus = GPService::VpnConnected;
+                emit connected();
+            }
+            break;
+        case TunnelEvent::Recovered:
+            if (vpnStatus == GPService::VpnReconnecting) {
+                log("The Tunnel is back up.");
+                vpnStatus = GPService::VpnConnected;
+                emit connected();
+            }
+            break;
+        case TunnelEvent::Lost:
+            if (vpnStatus == GPService::VpnConnected) {
+                log("The Tunnel was lost, openconnect is reconnecting.");
+                vpnStatus = GPService::VpnReconnecting;
+                emit reconnecting();
+            }
+            break;
+        case TunnelEvent::None:
+            break;
+        }
+    }
 }
 
 void GPService::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatus)
