@@ -37,6 +37,16 @@ SAMLLoginWindow::SAMLLoginWindow(QWidget *parent)
     });
 }
 
+SAMLLoginWindow::~SAMLLoginWindow()
+{
+    // Destroying the page runs pending toHtml() callbacks with an empty result.
+    // Delete the view while this window is still whole and tell handleHtml() to
+    // ignore them, otherwise it would show() a half-destroyed dialog.
+    destroying = true;
+    delete webView;
+    webView = nullptr;
+}
+
 void SAMLLoginWindow::closeEvent(QCloseEvent *event)
 {
     event->accept();
@@ -165,6 +175,10 @@ void SAMLLoginWindow::onLoadFinished()
 
 void SAMLLoginWindow::handleHtml(const QString &html)
 {
+    if (destroying || done || failed) {
+        return;
+    }
+
     // try to check the html body and extract from there
     const auto samlAuthStatus = parseTag("saml-auth-status", html);
 
