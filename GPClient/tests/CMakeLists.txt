@@ -1,12 +1,28 @@
-# Tests for the request helper that every Portal and Gateway request goes through.
-# They need Qt6 Test and the openssl CLI (to generate throwaway certificates at
-# build time). Without them the tests are skipped with a warning, so the normal
-# build and install keep working.
+# GPClient tests. They need Qt6 Test; the request helper tests also need the
+# openssl CLI (to generate throwaway certificates at build time). Without them
+# the tests are skipped with a warning, so the normal build and install keep
+# working.
 
-find_program(OPENSSL_EXECUTABLE openssl)
 find_package(Qt6 QUIET COMPONENTS Test)
-if (NOT OPENSSL_EXECUTABLE OR NOT Qt6Test_FOUND)
-    message(WARNING "openssl or Qt6 Test not found, the GPClient tests are not built")
+if (NOT Qt6Test_FOUND)
+    message(WARNING "Qt6 Test not found, the GPClient tests are not built")
+    return()
+endif()
+
+# Tests for the connection presenter (what the window shows for each state).
+add_executable(tst_connectionview
+    tst_connectionview.cpp
+    ../connectionview.cpp
+)
+target_include_directories(tst_connectionview PRIVATE ${CMAKE_SOURCE_DIR}/GPClient)
+target_link_libraries(tst_connectionview Qt6::Test Qt6::Core)
+add_test(NAME tst_connectionview COMMAND tst_connectionview)
+set_tests_properties(tst_connectionview PROPERTIES TIMEOUT 60)
+
+# Tests for the request helper that every Portal and Gateway request goes through.
+find_program(OPENSSL_EXECUTABLE openssl)
+if (NOT OPENSSL_EXECUTABLE)
+    message(WARNING "openssl not found, the request helper tests are not built")
     return()
 endif()
 
