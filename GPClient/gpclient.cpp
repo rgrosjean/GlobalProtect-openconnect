@@ -152,7 +152,7 @@ void GPClient::on_portalInput_returnPressed()
 
 void GPClient::on_portalInput_editingFinished()
 {
-    populateGatewayMenu();
+    populateGateways();
 }
 
 void GPClient::initSystemTrayIcon()
@@ -162,7 +162,7 @@ void GPClient::initSystemTrayIcon()
 
     gatewaySwitchMenu = new QMenu("Switch Gateway", this);
     gatewaySwitchMenu->setIcon(QIcon::fromTheme("network-workgroup"));
-    populateGatewayMenu();
+    populateGateways();
 
     systemTrayIcon->setIcon(QIcon(shieldResource(Shield::NotConnected)));
     systemTrayIcon->setToolTip("GlobalProtect");
@@ -197,13 +197,21 @@ void GPClient::initVpnStatus() {
     }
 }
 
-void GPClient::populateGatewayMenu()
+// Refills both Gateway pickers, the tray's Switch Gateway menu and the connected
+// view's dropdown, from the same Gateways and current Gateway, so both always agree.
+// Called whenever the Portal, its Gateways or the current Gateway change.
+void GPClient::populateGateways()
+{
+    const QList<GPGateway> gateways = allGateways();
+    const GPGateway current = currentGateway();
+    populateGatewayMenu(gateways, current);
+    populateGatewayInput(gateways, current);
+}
+
+void GPClient::populateGatewayMenu(const QList<GPGateway> &gateways, const GPGateway &current)
 {
     LOGI << "Populating the Switch Gateway menu...";
 
-    populateGatewayInput();
-
-    const QList<GPGateway> gateways = allGateways();
     gatewaySwitchMenu->clear();
 
     if (gateways.isEmpty()) {
@@ -211,7 +219,7 @@ void GPClient::populateGatewayMenu()
         return;
     }
 
-    const QString currentGatewayName = currentGateway().name();
+    const QString currentGatewayName = current.name();
     for (int i = 0; i < gateways.length(); i++) {
         const GPGateway g = gateways.at(i);
         QString iconImage = ":/images/radio_unselected.png";
@@ -222,24 +230,16 @@ void GPClient::populateGatewayMenu()
     }
 }
 
-// The connected view's Gateway dropdown. Filled from the same Gateways and current
-// Gateway as the tray's Switch Gateway menu, so both always agree.
-void GPClient::populateGatewayInput()
+// The connected view's Gateway dropdown; whether it is enabled also depends on the state.
+void GPClient::populateGatewayInput(const QList<GPGateway> &gateways, const GPGateway &current)
 {
-    const QList<GPGateway> gateways = allGateways();
-    QStringList names;
-    for (const GPGateway &g : gateways) {
-        names.append(g.name());
-    }
-    const GatewayChoice choice = presentGateways(names, currentGateway().name(), state);
+    const GatewayChoice choice = presentGateways(gateways, current, state);
 
     const QSignalBlocker blocker(ui->gatewayInput);
     ui->gatewayInput->clear();
     for (int i = 0; i < choice.names.size(); ++i) {
         ui->gatewayInput->addItem(choice.names.at(i));
-        if (i < gateways.size()) {
-            ui->gatewayInput->setItemData(i, gateways.at(i).address(), Qt::ToolTipRole);
-        }
+        ui->gatewayInput->setItemData(i, choice.addresses.at(i), Qt::ToolTipRole);
     }
     ui->gatewayInput->setCurrentIndex(choice.currentIndex);
     ui->gatewayInput->setEnabled(choice.enabled);
@@ -276,7 +276,7 @@ void GPClient::updateConnectionStatus(ConnectionState newState)
     ui->portalInput->setReadOnly(!idle);
     ui->activeForLabel->setText(shown.activeForText);
     ui->connectedPortalValue->setText(portal());
-    populateGatewayInput();
+    populateGatewayInput(allGateways(), currentGateway());
     showView(shown.visibleView);
 
     systemTrayIcon->setIcon(shieldIcon);
@@ -589,7 +589,7 @@ void GPClient::setAllGateways(QList<GPGateway> gateways)
     LOGI << "Updating all the gateways...";
 
     settings::save(portal() + "_gateways", GPGateway::serialize(gateways));
-    populateGatewayMenu();
+    populateGateways();
 }
 
 GPGateway GPClient::currentGateway() const
@@ -611,13 +611,13 @@ void GPClient::setCurrentGateway(const GPGateway gateway)
     // Do not overwrite the portal input with the gateway address: the saved gateways
     // and the selected gateway are keyed by the portal address.
     settings::save(portal() + "_selectedGateway", gateway.name());
-    populateGatewayMenu();
+    populateGateways();
 }
 
 void GPClient::reset()
 {
     settings::clear();
-    populateGatewayMenu();
+    populateGateways();
     ui->portalInput->clear();
 }
 

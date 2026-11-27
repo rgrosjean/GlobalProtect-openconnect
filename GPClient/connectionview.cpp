@@ -39,17 +39,24 @@ ConnectionView presentConnection(ConnectionState state, qint64 tunnelSeconds)
     return { "Not Connected", Shield::NotConnected, "Connect", true, VisibleView::Disconnected, {} };
 }
 
-GatewayChoice presentGateways(const QStringList &gatewayNames, const QString &currentGateway, ConnectionState state)
+GatewayChoice presentGateways(const QList<GPGateway> &gateways, const GPGateway &currentGateway, ConnectionState state)
 {
-    QStringList names = gatewayNames;
-    if (names.isEmpty() && !currentGateway.isEmpty()) {
-        names.append(currentGateway);
+    QList<GPGateway> listed = gateways;
+    if (listed.isEmpty() && !currentGateway.name().isEmpty()) {
+        listed.append(currentGateway);
+    }
+
+    QStringList names;
+    QStringList addresses;
+    for (const GPGateway &g : listed) {
+        names.append(g.name());
+        addresses.append(g.address());
     }
 
     // With a single Gateway (the Portal address used directly as a Gateway) there is
     // nothing to switch to; while the Tunnel goes down or moves, no new switch can start.
     const bool enabled = names.size() > 1 && state == ConnectionState::Connected;
-    return { names, int(names.indexOf(currentGateway)), enabled };
+    return { names, addresses, int(names.indexOf(currentGateway.name())), enabled };
 }
 
 GatewayPick gatewayPickFor(ConnectionState state)

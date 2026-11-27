@@ -4,6 +4,8 @@
 #include <QtCore/QString>
 #include <QtCore/QStringList>
 
+#include "gpgateway.h"
+
 // Where the client is in its connection lifecycle. The window holds exactly one.
 enum class ConnectionState {
     Disconnected,
@@ -42,14 +44,15 @@ ConnectionView presentConnection(ConnectionState state, qint64 tunnelSeconds);
 
 // What the connected view's Gateway dropdown shows.
 struct GatewayChoice {
-    QStringList names;  // one entry per Gateway, in Portal Config order
-    int currentIndex;   // the current Gateway, -1 if none
-    bool enabled;       // whether the user can pick another Gateway
+    QStringList names;      // one entry per Gateway, in Portal Config order
+    QStringList addresses;  // the address of each entry in names
+    int currentIndex;       // the current Gateway, -1 if none
+    bool enabled;           // whether the user can pick another Gateway
 };
 
 // Pure mapping from the Gateways of the Portal Config, the current Gateway and the
 // ConnectionState to the Gateway dropdown.
-GatewayChoice presentGateways(const QStringList &gatewayNames, const QString &currentGateway, ConnectionState state);
+GatewayChoice presentGateways(const QList<GPGateway> &gateways, const GPGateway &currentGateway, ConnectionState state);
 
 // What picking another Gateway does.
 enum class GatewayPick {

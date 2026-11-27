@@ -103,8 +103,9 @@ private:
 
     void initSystemTrayIcon();
     void initVpnStatus();
-    void populateGatewayMenu();
-    void populateGatewayInput();
+    void populateGateways();
+    void populateGatewayMenu(const QList<GPGateway> &gateways, const GPGateway &current);
+    void populateGatewayInput(const QList<GPGateway> &gateways, const GPGateway &current);
     void updateConnectionStatus(ConnectionState newState);
     void updateProgress(ConnectionState newState);
     qint64 tunnelSeconds() const;

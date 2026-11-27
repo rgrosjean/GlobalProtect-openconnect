@@ -14,6 +14,22 @@ Q_DECLARE_METATYPE(Shield)
 Q_DECLARE_METATYPE(VisibleView)
 Q_DECLARE_METATYPE(GatewayPick)
 
+namespace {
+
+GPGateway gateway(const QString &name, const QString &address)
+{
+    GPGateway g;
+    g.setName(name);
+    g.setAddress(address);
+    return g;
+}
+
+GPGateway berlin() { return gateway("Berlin", "berlin.example.com"); }
+GPGateway paris() { return gateway("Paris", "paris.example.com"); }
+GPGateway tokyo() { return gateway("Tokyo", "tokyo.example.com"); }
+
+} // namespace
+
 class TestConnectionView : public QObject
 {
     Q_OBJECT
@@ -88,17 +104,26 @@ private slots:
 
     void gatewayDropdownListsPortalConfigGateways()
     {
-        const GatewayChoice c = presentGateways({ "Berlin", "Paris", "Tokyo" }, "Paris", ConnectionState::Connected);
+        const GatewayChoice c = presentGateways({ berlin(), paris(), tokyo() }, paris(), ConnectionState::Connected);
 
         QCOMPARE(c.names, QStringList({ "Berlin", "Paris", "Tokyo" }));
         QCOMPARE(c.currentIndex, 1);
         QVERIFY(c.enabled);
     }
 
+    // Each entry's address is shown with its name (as a tooltip).
+    void gatewayDropdownGivesEachGatewayItsAddress()
+    {
+        const GatewayChoice c = presentGateways({ berlin(), paris(), tokyo() }, paris(), ConnectionState::Connected);
+
+        QCOMPARE(c.addresses, QStringList({ "berlin.example.com", "paris.example.com", "tokyo.example.com" }));
+    }
+
     // The Portal address used directly as a Gateway: the only Gateway is the Portal itself.
     void gatewayDropdownDisabledForPortalUsedAsGateway()
     {
-        const GatewayChoice c = presentGateways({ "vpn.example.com" }, "vpn.example.com", ConnectionState::Connected);
+        const GPGateway portal = gateway("vpn.example.com", "vpn.example.com");
+        const GatewayChoice c = presentGateways({ portal }, portal, ConnectionState::Connected);
 
         QCOMPARE(c.names, QStringList({ "vpn.example.com" }));
         QCOMPARE(c.currentIndex, 0);
@@ -107,9 +132,10 @@ private slots:
 
     void gatewayDropdownShowsCurrentGatewayWhenNoneListed()
     {
-        const GatewayChoice c = presentGateways({}, "vpn.example.com", ConnectionState::Connected);
+        const GatewayChoice c = presentGateways({}, gateway("vpn.example.com", "10.0.0.1"), ConnectionState::Connected);
 
         QCOMPARE(c.names, QStringList({ "vpn.example.com" }));
+        QCOMPARE(c.addresses, QStringList({ "10.0.0.1" }));
         QCOMPARE(c.currentIndex, 0);
         QVERIFY(!c.enabled);
     }
@@ -130,7 +156,7 @@ private slots:
         QFETCH(ConnectionState, state);
         QFETCH(bool, enabled);
 
-        const GatewayChoice c = presentGateways({ "Berlin", "Paris" }, "Paris", state);
+        const GatewayChoice c = presentGateways({ berlin(), paris() }, paris(), state);
 
         QCOMPARE(c.currentIndex, 1);
         QCOMPARE(c.enabled, enabled);
