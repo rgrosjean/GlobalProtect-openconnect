@@ -32,6 +32,7 @@ add_executable(gpclient
     preloginresponse.cpp
     samlloginwindow.cpp
     gpclient.cpp
+    clientos.cpp
     connectionview.cpp
     settingsdialog.cpp
     gpclient.ui
