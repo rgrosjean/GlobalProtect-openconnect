@@ -39,4 +39,7 @@ struct ConnectionView {
 // to what the window shows. No widget or DBus dependency, so it can be tested alone.
 ConnectionView presentConnection(ConnectionState state, qint64 tunnelSeconds);
 
+// Qt resource path of the SVG icon drawn for a shield, used by the window and the tray.
+QString shieldResource(Shield shield);
+
 #endif // CONNECTIONVIEW_H

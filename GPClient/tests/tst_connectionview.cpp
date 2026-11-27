@@ -1,6 +1,9 @@
 // Tests for the connection presenter: for each ConnectionState, what the window
 // shows (status text, shield, main button, visible view, Tunnel timer).
 
+#include <QtCore/QDir>
+#include <QtGui/QImage>
+#include <QtGui/QImageReader>
 #include <QtTest/QTest>
 
 #include "connectionview.h"
@@ -78,6 +81,67 @@ private slots:
     {
         QVERIFY(presentConnection(ConnectionState::Disconnected, 42).activeForText.isEmpty());
         QVERIFY(presentConnection(ConnectionState::Disconnecting, 42).activeForText.isEmpty());
+    }
+
+    void mapsShieldToResource_data()
+    {
+        QTest::addColumn<Shield>("shield");
+        QTest::addColumn<QString>("resource");
+
+        QTest::newRow("not connected") << Shield::NotConnected << ":/images/shield_not_connected.svg";
+        QTest::newRow("in progress") << Shield::InProgress << ":/images/shield_in_progress.svg";
+        QTest::newRow("connected") << Shield::Connected << ":/images/shield_connected.svg";
+    }
+
+    void mapsShieldToResource()
+    {
+        QFETCH(Shield, shield);
+        QFETCH(QString, resource);
+
+        QCOMPARE(shieldResource(shield), resource);
+    }
+
+    // The resource must exist and render, and be the right colour: grey, amber, green.
+    void shieldRendersInItsColour_data()
+    {
+        QTest::addColumn<Shield>("shield");
+        QTest::addColumn<int>("minHue");
+        QTest::addColumn<int>("maxHue");
+        QTest::addColumn<bool>("grey");
+
+        QTest::newRow("not connected") << Shield::NotConnected << 0 << 359 << true;
+        QTest::newRow("in progress") << Shield::InProgress << 25 << 55 << false;
+        QTest::newRow("connected") << Shield::Connected << 100 << 160 << false;
+    }
+
+    void shieldRendersInItsColour()
+    {
+        QFETCH(Shield, shield);
+        QFETCH(int, minHue);
+        QFETCH(int, maxHue);
+        QFETCH(bool, grey);
+
+        QImageReader reader(shieldResource(shield));
+        QVERIFY2(reader.canRead(), qPrintable(reader.errorString()));
+        reader.setScaledSize(QSize(128, 128));
+        const QImage image = reader.read();
+        QVERIFY(!image.isNull());
+
+        // Count the opaque pixels that are the shield's body colour (most saturated or,
+        // for grey, least saturated); the symbol inside is white and is skipped.
+        int body = 0;
+        for (int y = 0; y < image.height(); ++y) {
+            for (int x = 0; x < image.width(); ++x) {
+                const QColor c = image.pixelColor(x, y);
+                if (c.alpha() < 250 || c.lightness() > 230) {
+                    continue;
+                }
+                if (grey ? c.saturation() < 40 : (c.saturation() > 120 && c.hue() >= minHue && c.hue() <= maxHue)) {
+                    ++body;
+                }
+            }
+        }
+        QVERIFY2(body > 128 * 128 / 4, qPrintable(QString("only %1 body pixels").arg(body)));
     }
 };
 

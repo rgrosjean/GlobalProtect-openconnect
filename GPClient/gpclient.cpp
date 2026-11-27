@@ -98,7 +98,7 @@ void GPClient::initSystemTrayIcon()
     gatewaySwitchMenu->setIcon(QIcon::fromTheme("network-workgroup"));
     populateGatewayMenu();
 
-    systemTrayIcon->setIcon(QIcon(":/images/not_connected.png"));
+    systemTrayIcon->setIcon(QIcon(shieldResource(Shield::NotConnected)));
     systemTrayIcon->setToolTip("GlobalProtect");
     systemTrayIcon->setContextMenu(contextMenu);
 
@@ -154,23 +154,6 @@ void GPClient::populateGatewayMenu()
     }
 }
 
-namespace {
-
-QString shieldImage(Shield shield)
-{
-    switch (shield) {
-    case Shield::Connected:
-        return ":/images/connected.png";
-    case Shield::InProgress:
-        return ":/images/pending.png";
-    case Shield::NotConnected:
-        break;
-    }
-    return ":/images/not_connected.png";
-}
-
-} // namespace
-
 // The only place that sets the status text, the main button and the tray Connect action:
 // it applies what the presenter returns for the state.
 void GPClient::updateConnectionStatus(ConnectionState newState)
@@ -186,17 +169,19 @@ void GPClient::updateConnectionStatus(ConnectionState newState)
         ? tunnelStartedAt.secsTo(QDateTime::currentDateTime())
         : 0;
     const ConnectionView shown = presentConnection(state, tunnelSeconds);
-    const QString image = shieldImage(shown.shield);
+    const QIcon shieldIcon{ shieldResource(shown.shield) };
     const bool idle = state == ConnectionState::Disconnected;
 
     ui->statusLabel->setText(shown.statusText);
-    ui->statusImage->setStyleSheet(QString("image: url(%1); padding: 15;").arg(image));
+    // Rendered at the screen's pixel ratio, so the SVG stays sharp on HiDPI screens.
+    ui->statusImage->setAlignment(Qt::AlignCenter);
+    ui->statusImage->setPixmap(shieldIcon.pixmap(QSize(80, 80)));
     ui->connectButton->setText(shown.buttonText);
     ui->connectButton->setEnabled(shown.buttonEnabled);
     ui->portalInput->setReadOnly(!idle);
     showView(shown.visibleView);
 
-    systemTrayIcon->setIcon(QIcon{ image });
+    systemTrayIcon->setIcon(shieldIcon);
     connectAction->setText(shown.buttonText);
     connectAction->setEnabled(shown.buttonEnabled);
     gatewaySwitchMenu->setEnabled(shown.buttonEnabled);
