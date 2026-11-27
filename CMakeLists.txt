@@ -31,6 +31,7 @@ find_package(Qt6 REQUIRED COMPONENTS
     WebEngineCore
     WebEngineWidgets
     DBus
+    Svg
 )
 
 find_package(Qt6Keychain REQUIRED)
