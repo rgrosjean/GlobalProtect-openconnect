@@ -51,6 +51,7 @@ private slots:
     void onGatewayChanged(QAction *action);
     void onGatewayInputActivated(int index);
     void onTunnelTimerTick();
+    void onSwitchTimeout();
 
     void onPortalSuccess(const PortalConfigResponse portalConfig, const QString region);
     void onPortalPreloginFail(const QString msg);
@@ -88,6 +89,7 @@ private:
     // part of a Gateway switch after the old Tunnel went down).
     QDateTime tunnelStartedAt;
     QTimer *tunnelTimer;  // refreshes the "Active for" text once per second while Connected
+    QTimer *switchTimeout;  // ends a Gateway switch whose old Tunnel never reports going down
 
     bool isQuickConnect { false };
     PortalConfigResponse portalConfig;

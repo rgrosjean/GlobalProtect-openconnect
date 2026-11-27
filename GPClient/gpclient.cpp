@@ -24,6 +24,7 @@ GPClient::GPClient(QWidget *parent, IVpn *vpn)
     , vpn(vpn)
     , settingsDialog(new SettingsDialog(this))
     , tunnelTimer(new QTimer(this))
+    , switchTimeout(new QTimer(this))
 {
     ui->setupUi(this);
 
@@ -47,6 +48,9 @@ GPClient::GPClient(QWidget *parent, IVpn *vpn)
     connect(ui->gatewayInput, &QComboBox::activated, this, &GPClient::onGatewayInputActivated);
     tunnelTimer->setInterval(1000);
     connect(tunnelTimer, &QTimer::timeout, this, &GPClient::onTunnelTimerTick);
+    switchTimeout->setSingleShot(true);
+    switchTimeout->setInterval(30000);
+    connect(switchTimeout, &QTimer::timeout, this, &GPClient::onSwitchTimeout);
 
     // Initialize the context menu of system tray.
     initSystemTrayIcon();
@@ -351,6 +355,7 @@ void GPClient::switchGateway(int index)
     if (pick == GatewayPick::Switch) {
         updateConnectionStatus(ConnectionState::SwitchingGateway);
         vpn->disconnect();
+        switchTimeout->start();
     }
 }
 
@@ -614,6 +619,8 @@ void GPClient::onVPNConnected()
 
 void GPClient::onVPNDisconnected()
 {
+    switchTimeout->stop();
+
     // During a Gateway switch the old Tunnel (the one with a start time) went down:
     // log in to the new Gateway and stay in SwitchingGateway until its Tunnel is up.
     // If the new Tunnel goes down before it came up, the switch ends as a disconnect.
@@ -624,6 +631,16 @@ void GPClient::onVPNDisconnected()
     }
 
     updateConnectionStatus(ConnectionState::Disconnected);
+}
+
+// The old Tunnel never reported going down during a Gateway switch: show what the
+// VPN service reports instead of "Switching Gateway..." forever.
+void GPClient::onSwitchTimeout()
+{
+    if (state == ConnectionState::SwitchingGateway && tunnelStartedAt.isValid()) {
+        LOGW << "The Tunnel did not go down for the Gateway switch, reading the VPN status again.";
+        initVpnStatus();
+    }
 }
 
 void GPClient::onVPNError(QString errorMessage)
