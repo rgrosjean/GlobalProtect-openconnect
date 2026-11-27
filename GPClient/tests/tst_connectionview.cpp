@@ -185,24 +185,6 @@ private slots:
         QCOMPARE(gatewayPickFor(state), pick);
     }
 
-    void mapsShieldToResource_data()
-    {
-        QTest::addColumn<Shield>("shield");
-        QTest::addColumn<QString>("resource");
-
-        QTest::newRow("not connected") << Shield::NotConnected << ":/images/shield_not_connected.svg";
-        QTest::newRow("in progress") << Shield::InProgress << ":/images/shield_in_progress.svg";
-        QTest::newRow("connected") << Shield::Connected << ":/images/shield_connected.svg";
-    }
-
-    void mapsShieldToResource()
-    {
-        QFETCH(Shield, shield);
-        QFETCH(QString, resource);
-
-        QCOMPARE(shieldResource(shield), resource);
-    }
-
     // The resource must exist and render, and be the right colour: grey, amber, green.
     void shieldRendersInItsColour_data()
     {
