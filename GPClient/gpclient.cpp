@@ -20,8 +20,8 @@ GPClient::GPClient(QWidget *parent, IVpn *vpn)
     ui->setupUi(this);
 
     setWindowTitle("GlobalProtect");
-    setFixedSize(width(), height());
-    gpclient::helper::moveCenter(this);
+    // Fixed width from the .ui file; the height follows the visible view (see showView).
+    setFixedWidth(width());
 
     setupSettings();
 
@@ -38,6 +38,9 @@ GPClient::GPClient(QWidget *parent, IVpn *vpn)
     // Initialize the context menu of system tray.
     initSystemTrayIcon();
     initVpnStatus();
+
+    // Centre once the height follows the visible view.
+    gpclient::helper::moveCenter(this);
 }
 
 void GPClient::setupSettings()
@@ -191,12 +194,30 @@ void GPClient::updateConnectionStatus(ConnectionState newState)
     ui->connectButton->setText(shown.buttonText);
     ui->connectButton->setEnabled(shown.buttonEnabled);
     ui->portalInput->setReadOnly(!idle);
+    showView(shown.visibleView);
 
     systemTrayIcon->setIcon(QIcon{ image });
     connectAction->setText(shown.buttonText);
     connectAction->setEnabled(shown.buttonEnabled);
     gatewaySwitchMenu->setEnabled(shown.buttonEnabled);
     clearAction->setEnabled(idle);
+}
+
+// Shows the page of the central area matching the view, and sizes the window to it:
+// hidden pages get an Ignored size policy so the stack only measures the current one.
+void GPClient::showView(VisibleView view)
+{
+    QWidget *const current = view == VisibleView::Connected ? ui->connectedView : ui->disconnectedView;
+    for (int i = 0; i < ui->viewStack->count(); ++i) {
+        QWidget *page = ui->viewStack->widget(i);
+        const auto policy = page == current ? QSizePolicy::Preferred : QSizePolicy::Ignored;
+        page->setSizePolicy(policy, policy);
+    }
+    ui->viewStack->setCurrentWidget(current);
+
+    centralWidget()->layout()->activate();
+    layout()->activate();
+    setFixedHeight(sizeHint().height());
 }
 
 void GPClient::onSystemTrayActivated(QSystemTrayIcon::ActivationReason reason)

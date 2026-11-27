@@ -88,6 +88,7 @@ private:
     void initVpnStatus();
     void populateGatewayMenu();
     void updateConnectionStatus(ConnectionState newState);
+    void showView(VisibleView view);
 
     void portalLogin();
     void tryGatewayLogin();
