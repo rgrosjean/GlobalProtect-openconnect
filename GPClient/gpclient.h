@@ -38,6 +38,9 @@ public:
     void doConnect();
     void reset();
 
+protected:
+    void changeEvent(QEvent *event) override;
+
 private slots:
     void onSettingsButtonClicked();
     void showAbout();
@@ -80,7 +83,7 @@ private:
     QAction *quitAction;
 
     SettingsDialog *settingsDialog;
-    QToolButton *moreButton;
+    QToolButton *moreButton { nullptr };
     QMenu *moreMenu;
     QAction *resetMenuAction;
 
@@ -96,6 +99,7 @@ private:
 
     void setupSettings();
     void setupMenu();
+    void updateMenuIcon();
 
     void initSystemTrayIcon();
     void initVpnStatus();

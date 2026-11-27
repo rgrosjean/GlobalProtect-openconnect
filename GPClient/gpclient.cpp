@@ -91,7 +91,6 @@ void GPClient::setupMenu()
 {
     moreButton = new QToolButton(this);
     moreButton->setPopupMode(QToolButton::InstantPopup);
-    moreButton->setIcon(ellipsisIcon(palette().buttonText().color()));
     moreButton->setToolTip("Menu");
     moreButton->setIconSize(QSize(20, 20));
     moreButton->setFixedSize(QSize(28, 28));
@@ -105,6 +104,22 @@ void GPClient::setupMenu()
     moreMenu->addAction("About", this, &GPClient::showAbout);
     moreMenu->addAction("Quit", this, &GPClient::quit);
     moreButton->setMenu(moreMenu);
+    updateMenuIcon();
+}
+
+// The dots use the palette's button text colour, so they follow a light or dark theme.
+void GPClient::updateMenuIcon()
+{
+    moreButton->setIcon(ellipsisIcon(palette().buttonText().color()));
+}
+
+void GPClient::changeEvent(QEvent *event)
+{
+    QMainWindow::changeEvent(event);
+    // Palette events can arrive while setupUi() runs, before the button exists.
+    if (moreButton && (event->type() == QEvent::PaletteChange || event->type() == QEvent::ApplicationPaletteChange)) {
+        updateMenuIcon();
+    }
 }
 
 void GPClient::showAbout()
