@@ -18,7 +18,7 @@
 > * **TLS certificate verification** of the Portal and Gateways against the system trust store, which used to be disabled.
 >   For a Portal with a self-signed certificate, see [Self-signed Portal certificates](#self-signed-portal-certificates).
 > * Credentials (cookies, tokens, passwords) are redacted from the logs.
-> * Build fixes for Ubuntu 26.04 (Qt 6.10, CMake 3.31) and automated tests for the request helper (`ctest`).
+> * Build fixes for Ubuntu 26.04 (Qt 6.10, CMake 3.31) and automated tests for the request helper (`./scripts/test.sh`).
 
 # GlobalProtect-openconnect
 
@@ -74,7 +74,7 @@ To rebuild and reinstall after a change, run `./scripts/install.sh` (it asks for
 The build also compiles the tests when Qt6 Test and the `openssl` command are available. Run them with:
 
 ```sh
-cd build && ctest
+./scripts/test.sh
 ```
 
 ## Run
