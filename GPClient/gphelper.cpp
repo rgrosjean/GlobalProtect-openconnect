@@ -1,4 +1,6 @@
 #include <QtCore/QXmlStreamReader>
+#include <QtCore/QSysInfo>
+#include <QtCore/QUuid>
 #include <QtWidgets/QMessageBox>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QWidget>
@@ -27,12 +29,120 @@ QNetworkReply* gpclient::helper::createRequest(QString url, QByteArray params)
     request.setSslConfiguration(conf);
 
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/x-www-form-urlencoded");
-    request.setHeader(QNetworkRequest::UserAgentHeader, UA);
+    request.setHeader(QNetworkRequest::UserAgentHeader, userAgent());
 
     if (params == nullptr) {
         return networkManager->post(request, QByteArray(nullptr));
     }
     return networkManager->post(request, params);
+}
+
+QString gpclient::helper::clientos()
+{
+    return settings::get("clientos", "Linux").toString();
+}
+
+QString gpclient::helper::clientVersion()
+{
+    auto version = settings::get("client-version", "").toString();
+    if (!version.isEmpty()) {
+        return version;
+    }
+
+    const auto os = clientos();
+    if (os == "Windows") {
+        return "6.3.3-650";
+    }
+    if (os == "Mac") {
+        return "6.3.3-915";
+    }
+    return "6.3.3-619";
+}
+
+QString gpclient::helper::osVersion()
+{
+    auto version = settings::get("os-version", "").toString();
+    if (!version.isEmpty()) {
+        return version;
+    }
+
+    const auto os = clientos();
+    if (os == "Windows") {
+        return "Microsoft Windows 11 Pro , 64-bit";
+    }
+    if (os == "Mac") {
+        return "Apple Mac OS X 13.4.0";
+    }
+    return "Linux " + QSysInfo::prettyProductName();
+}
+
+QString gpclient::helper::hostId()
+{
+    auto id = settings::get("host-id", "").toString();
+    if (!id.isEmpty()) {
+        return id;
+    }
+
+    // Stable UUID derived from the machine id (product_uuid is only readable by root)
+    auto seed = QSysInfo::machineUniqueId();
+    if (seed.isEmpty()) {
+        seed = QSysInfo::machineHostName().toUtf8();
+    }
+    id = QUuid::createUuidV5(QUuid(), seed).toString(QUuid::WithoutBraces);
+
+    // Persist it, so the portal keeps seeing the same device even if the hostname changes
+    settings::save("host-id", id);
+    return id;
+}
+
+QString gpclient::helper::redact(const QString &secret)
+{
+    return secret.isEmpty() ? "<empty>" : QString("<redacted, %1 chars>").arg(secret.length());
+}
+
+QString gpclient::helper::userAgent()
+{
+    return QString("%1/%2 (%3)").arg(UA, clientVersion(), osVersion());
+}
+
+QNetworkReply* gpclient::helper::createPreloginRequest(const QString &url, const QString &defaultBrowser, const QString &os)
+{
+    QUrlQuery params;
+    params.addQueryItem("tmp", "tmp");
+    params.addQueryItem("clientVer", "4100");
+    if (!os.isEmpty()) {
+        params.addQueryItem("clientos", os);
+    }
+    params.addQueryItem("os-version", QUrl::toPercentEncoding(osVersion()));
+    params.addQueryItem("host-id", hostId());
+    params.addQueryItem("ipv6-support", "yes");
+    params.addQueryItem("default-browser", defaultBrowser);
+    params.addQueryItem("cas-support", "yes");
+    // base64 of {"cas_embedded_browser":"yes"}
+    params.addQueryItem("data", "eyJjYXNfZW1iZWRkZWRfYnJvd3NlciI6InllcyJ9");
+
+    // Always advertise Kerberos SSO in the query, as earlier versions did
+    const QString kerberosUrl = url + "?kerberos-support=yes";
+
+    // No secrets in the prelogin parameters
+    LOGI << "Prelogin request to " << kerberosUrl << " with " << params.toString(QUrl::FullyDecoded);
+
+    // Linux and macOS clients send the parameters in the body, Windows in the query
+    if (os == "Windows") {
+        return createRequest(kerberosUrl + "&" + params.toString(QUrl::FullyEncoded));
+    }
+    return createRequest(kerberosUrl, params.toString(QUrl::FullyEncoded).toUtf8());
+}
+
+QWebEngineProfile* gpclient::helper::webProfile()
+{
+    // Parented to the application, so it outlives every login page
+    static auto *profile = [] {
+        auto *p = new QWebEngineProfile("gpclient", QCoreApplication::instance());
+        p->setPersistentCookiesPolicy(QWebEngineProfile::AllowPersistentCookies);
+        return p;
+    }();
+    return profile;
 }
 
 GPGateway gpclient::helper::filterPreferredGateway(QList<GPGateway> gateways, const QString ruleName)
@@ -54,7 +164,6 @@ GPGateway gpclient::helper::filterPreferredGateway(QList<GPGateway> gateways, co
 QUrlQuery gpclient::helper::parseGatewayResponse(const QByteArray &xml)
 {
     LOGI << "Start parsing the gateway response...";
-    LOGI << "The gateway response is: " << xml;
 
     QXmlStreamReader xmlReader{xml};
     QList<QString> args;
@@ -73,6 +182,10 @@ QUrlQuery gpclient::helper::parseGatewayResponse(const QByteArray &xml)
     params.addQueryItem("domain", args.at(7));
     params.addQueryItem("preferred-ip", args.at(15));
     params.addQueryItem("computer", QUrl::toPercentEncoding(QSysInfo::machineHostName()));
+
+    LOGI << "The gateway response has " << args.size() << " arguments, authcookie: " << redact(args.at(1))
+         << ", portal: " << args.at(3) << ", user: " << args.at(4) << ", domain: " << args.at(7)
+         << ", preferred-ip: " << args.at(15);
 
     return params;
 }
@@ -135,7 +248,7 @@ void gpclient::helper::settings::clear()
         }
     }
 
-    QWebEngineProfile::defaultProfile()->cookieStore()->deleteAllCookies();
+    webProfile()->cookieStore()->deleteAllCookies();
 }
 
 

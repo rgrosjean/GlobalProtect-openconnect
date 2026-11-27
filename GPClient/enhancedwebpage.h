@@ -5,8 +5,11 @@
 
 class EnhancedWebPage : public QWebEnginePage
 {
+public:
+    explicit EnhancedWebPage(QWebEngineProfile *profile, QObject *parent = nullptr) : QWebEnginePage(profile, parent) {}
+
 protected:
-    bool certificateError(const QWebEngineCertificateError &certificateError);
+    bool acceptNavigationRequest(const QUrl &url, NavigationType type, bool isMainFrame) override;
 };
 
-#endif // !ECHANCEDWEBPAG
+#endif // ENHANCEDWEBPAGE_H

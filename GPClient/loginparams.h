@@ -16,11 +16,17 @@ public:
     void setPrelogonAuthCookie(const QString cookie);
     void setPreloginCookie(const QString cookie);
     void setInputStr(const QString inputStr);
+    void setToken(const QString token);
 
     QByteArray toUtf8() const;
+    // Same as toUtf8() with the password, cookies and token masked, for logging
+    QString toRedactedString() const;
 
 private:
+    QString clientos;
     QUrlQuery params;
+
+    void useSamlPasswordIfEmpty();
 
     void updateQueryItem(const QString key, const QString value);
 };

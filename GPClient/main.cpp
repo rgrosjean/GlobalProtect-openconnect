@@ -11,6 +11,7 @@
 #include "vpn_dbus.h"
 #include "vpn_json.h"
 #include "enhancedwebview.h"
+#include "gpcallbackhandler.h"
 #include "sigwatch.h"
 #include "version.h"
 
@@ -34,8 +35,12 @@ int main(int argc, char *argv[])
         qputenv(QT_AUTO_SCREEN_SCALE_FACTOR, "1");
     }
 
+    GPCallbackHandler::registerScheme();
+
     SingleApplication app(argc, argv);
     app.setQuitOnLastWindowClosed(false);
+
+    GPCallbackHandler::install();
 
     QCommandLineParser parser;
     parser.addHelpOption();

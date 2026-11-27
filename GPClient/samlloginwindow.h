@@ -23,12 +23,14 @@ signals:
 private slots:
     void onResponseReceived(QJsonObject params);
     void onLoadFinished();
-    void checkSamlResult(QString username, QString preloginCookie, QString userAuthCookie);
+    void checkSamlResult(QString username, QString preloginCookie, QString userAuthCookie, QString token = "");
+    void onCallbackReceived(const QUrl &url);
 
 private:
     static const auto MAX_WAIT_TIME { 10 * 1000 };
 
     bool failed { false };
+    bool done { false };
     EnhancedWebView *webView { nullptr };
     QMap<QString, QString> samlResult;
 

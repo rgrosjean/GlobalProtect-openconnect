@@ -1,3 +1,4 @@
+#include <QtCore/QUrlQuery>
 #include <QtWidgets/QVBoxLayout>
 #include <QtWebEngineCore/QWebEngineProfile>
 #include <QtWebEngineWidgets/QWebEngineView>
@@ -5,6 +6,8 @@
 #include <plog/Log.h>
 
 #include "samlloginwindow.h"
+#include "gpcallbackhandler.h"
+#include "gphelper.h"
 
 SAMLLoginWindow::SAMLLoginWindow(QWidget *parent)
     : QDialog(parent)
@@ -22,6 +25,7 @@ SAMLLoginWindow::SAMLLoginWindow(QWidget *parent)
     webView->initialize();
     connect(webView, &EnhancedWebView::responseReceived, this, &SAMLLoginWindow::onResponseReceived);
     connect(webView, &EnhancedWebView::loadFinished, this, &SAMLLoginWindow::onLoadFinished);
+    connect(GPCallbackHandler::instance(), &GPCallbackHandler::callbackReceived, this, &SAMLLoginWindow::onCallbackReceived);
 
     // Show the login window automatically when exceeds the MAX_WAIT_TIME
     QTimer::singleShot(MAX_WAIT_TIME, this, [this]() {
@@ -75,8 +79,51 @@ void SAMLLoginWindow::onResponseReceived(QJsonObject params)
     this->checkSamlResult(username, preloginCookie, userAuthCookie);
 }
 
-void SAMLLoginWindow::checkSamlResult(QString username, QString preloginCookie, QString userAuthCookie)
+void SAMLLoginWindow::onCallbackReceived(const QUrl &url)
 {
+    if (done || failed) {
+        return;
+    }
+
+    // Formats (see yuezk/GlobalProtect-openconnect 2.x, crates/gpapi/src/auth.rs):
+    //   globalprotectcallback:cas-as=1&un=<user>&token=<token>      (CAS)
+    //   globalprotectcallback:<base64 encoded SAML result HTML>
+    QString data = QString::fromUtf8(url.toEncoded());
+    data.remove(0, QString(GPCallbackHandler::SCHEME).length() + 1);
+    while (data.startsWith('/')) {
+        data.remove(0, 1);
+    }
+
+    if (data.startsWith("cas-as")) {
+        LOGI << "Got the CAS authentication data";
+        // Some clients encode the whole string ("cas-as%3D1%26un%3D..."): undo that
+        // outer layer only, then let QUrlQuery decode each value exactly once.
+        if (data.startsWith("cas-as%3D", Qt::CaseInsensitive)) {
+            data = QUrl::fromPercentEncoding(data.toUtf8());
+        }
+        const QUrlQuery query(data);
+        const auto username = query.queryItemValue("un", QUrl::FullyDecoded);
+        const auto token = query.queryItemValue("token", QUrl::FullyDecoded);
+        checkSamlResult(username, "", "", token);
+        return;
+    }
+
+    const auto html = QString::fromUtf8(QByteArray::fromBase64(QUrl::fromPercentEncoding(data.toUtf8()).toUtf8()));
+    if (parseTag("saml-auth-status", html) == "1") {
+        checkSamlResult(parseTag("saml-username", html), parseTag("prelogin-cookie", html), parseTag("portal-userauthcookie", html));
+    } else {
+        LOGE << "Unexpected " << GPCallbackHandler::SCHEME << " data, authentication failed";
+        failed = true;
+        emit fail("ERR002", "Authentication failed, please try again.");
+    }
+}
+
+void SAMLLoginWindow::checkSamlResult(QString username, QString preloginCookie, QString userAuthCookie, QString token)
+{
+    if (done) {
+        return;
+    }
+
     LOGI << "Checking the authentication result...";
 
     if (!username.isEmpty()) {
@@ -91,14 +138,20 @@ void SAMLLoginWindow::checkSamlResult(QString username, QString preloginCookie, 
         samlResult.insert("userAuthCookie", userAuthCookie);
     }
 
+    if (!token.isEmpty()) {
+        samlResult.insert("token", token);
+    }
+
     // Check the SAML result
     if (samlResult.contains("username")
-            && (samlResult.contains("preloginCookie") || samlResult.contains("userAuthCookie"))) {
+            && (samlResult.contains("preloginCookie") || samlResult.contains("userAuthCookie") || samlResult.contains("token"))) {
         LOGI << "Got the SAML authentication information successfully. "
              << "username: " << samlResult.value("username")
-             << ", preloginCookie: " << samlResult.value("preloginCookie")
-             << ", userAuthCookie: " << samlResult.value("userAuthCookie");
+             << ", preloginCookie: " << gpclient::helper::redact(samlResult.value("preloginCookie"))
+             << ", userAuthCookie: " << gpclient::helper::redact(samlResult.value("userAuthCookie"))
+             << ", token: " << gpclient::helper::redact(samlResult.value("token"));
 
+        done = true;
         emit success(samlResult);
         accept();
     }

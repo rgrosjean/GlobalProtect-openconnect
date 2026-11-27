@@ -15,12 +15,9 @@ GatewayAuthenticator::GatewayAuthenticator(const QString& gateway, GatewayAuthen
     : QObject()
     , gateway(gateway)
     , params(params)
-    , preloginUrl("https://" + gateway + "/ssl-vpn/prelogin.esp?tmp=tmp&kerberos-support=yes&ipv6-support=yes&clientVer=4100")
+    , preloginUrl("https://" + gateway + "/ssl-vpn/prelogin.esp")
     , loginUrl("https://" + gateway + "/ssl-vpn/login.esp")
 {
-    if (!params.clientos().isEmpty()) {
-        preloginUrl = preloginUrl + "&clientos=" + params.clientos();
-    }
 }
 
 void GatewayAuthenticator::authenticate()
@@ -38,7 +35,7 @@ void GatewayAuthenticator::authenticate()
 
 void GatewayAuthenticator::login(const LoginParams &loginParams)
 {
-    LOGI << QString("Trying to login the gateway at %1, with %2").arg(loginUrl).arg(QString(loginParams.toUtf8()));
+    LOGI << QString("Trying to login the gateway at %1, with %2").arg(loginUrl).arg(loginParams.toRedactedString());
 
     auto *reply = createRequest(loginUrl, loginParams.toUtf8());
     connect(reply, &QNetworkReply::finished, this, &GatewayAuthenticator::onLoginFinished);
@@ -80,7 +77,7 @@ void GatewayAuthenticator::doAuth()
 {
     LOGI << "Perform the gateway prelogin at " << preloginUrl;
 
-    auto *reply = createRequest(preloginUrl);
+    auto *reply = createPreloginRequest(preloginUrl, "0", params.clientos());
     connect(reply, &QNetworkReply::finished, this, &GatewayAuthenticator::onPreloginFinished);
 }
 
@@ -172,15 +169,18 @@ void GatewayAuthenticator::samlAuth(QString samlMethod, QString samlRequest, QSt
 void GatewayAuthenticator::onSAMLLoginSuccess(const QMap<QString, QString> &samlResult)
 {
     if (samlResult.contains("preloginCookie")) {
-        LOGI << "SAML login succeeded, got the prelogin-cookie " << samlResult.value("preloginCookie");
+        LOGI << "SAML login succeeded, got the prelogin-cookie " << redact(samlResult.value("preloginCookie"));
+    } else if (samlResult.contains("token")) {
+        LOGI << "CAS login succeeded, got the token " << redact(samlResult.value("token"));
     } else {
-        LOGI << "SAML login succeeded, got the portal-userauthcookie " << samlResult.value("userAuthCookie");
+        LOGI << "SAML login succeeded, got the portal-userauthcookie " << redact(samlResult.value("userAuthCookie"));
     }
 
     LoginParams loginParams { params.clientos() };
     loginParams.setUser(samlResult.value("username"));
     loginParams.setPreloginCookie(samlResult.value("preloginCookie"));
     loginParams.setUserAuthCookie(samlResult.value("userAuthCookie"));
+    loginParams.setToken(samlResult.value("token"));
 
     login(loginParams);
 }

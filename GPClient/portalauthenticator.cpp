@@ -15,12 +15,9 @@ using namespace gpclient::helper;
 PortalAuthenticator::PortalAuthenticator(const QString& portal, const QString& clientos) : QObject()
   , portal(portal)
   , clientos(clientos)
-  , preloginUrl("https://" + portal + "/global-protect/prelogin.esp?tmp=tmp&kerberos-support=yes&ipv6-support=yes&clientVer=4100")
+  , preloginUrl("https://" + portal + "/global-protect/prelogin.esp")
   , configUrl("https://" + portal + "/global-protect/getconfig.esp")
 {
-    if (!clientos.isEmpty()) {
-        preloginUrl = preloginUrl + "&clientos=" + clientos;
-    }
 }
 
 PortalAuthenticator::~PortalAuthenticator()
@@ -34,7 +31,7 @@ void PortalAuthenticator::authenticate()
 
     LOGI << QString("(%1/%2) attempts").arg(attempts).arg(MAX_ATTEMPTS) << ", perform portal prelogin at " << preloginUrl;
 
-    QNetworkReply *reply = createRequest(preloginUrl);
+    QNetworkReply *reply = createPreloginRequest(preloginUrl, "-10", clientos);
     connect(reply, &QNetworkReply::finished, this, &PortalAuthenticator::onPreloginFinished);
 }
 
@@ -140,11 +137,13 @@ void PortalAuthenticator::onSAMLLoginSuccess(const QMap<QString, QString> samlRe
 {
     if (samlResult.contains("preloginCookie")) {
         LOGI << "SAML login succeeded, got the prelogin-cookie";
+    } else if (samlResult.contains("token")) {
+        LOGI << "CAS login succeeded, got the token";
     } else {
         LOGI << "SAML login succeeded, got the portal-userauthcookie";
     }
 
-    fetchConfig(samlResult.value("username"), "", samlResult.value("preloginCookie"), samlResult.value("userAuthCookie"));
+    fetchConfig(samlResult.value("username"), "", samlResult.value("preloginCookie"), samlResult.value("userAuthCookie"), samlResult.value("token"));
 }
 
 void PortalAuthenticator::onSAMLLoginFail(const QString &code, const QString &msg)
@@ -157,7 +156,7 @@ void PortalAuthenticator::onSAMLLoginFail(const QString &code, const QString &ms
     }
 }
 
-void PortalAuthenticator::fetchConfig(QString username, QString password, QString preloginCookie, QString userAuthCookie)
+void PortalAuthenticator::fetchConfig(QString username, QString password, QString preloginCookie, QString userAuthCookie, QString token)
 {
     LoginParams loginParams { clientos };
     loginParams.setServer(portal);
@@ -165,6 +164,7 @@ void PortalAuthenticator::fetchConfig(QString username, QString password, QStrin
     loginParams.setPassword(password);
     loginParams.setPreloginCookie(preloginCookie);
     loginParams.setUserAuthCookie(userAuthCookie);
+    loginParams.setToken(token);
 
     // Save the username and password for future use.
     this->username = username;

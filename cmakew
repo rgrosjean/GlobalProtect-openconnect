@@ -1,6 +1,6 @@
 #!/bin/bash
 
-cmake_version="3.21.2"
+cmake_version="3.31.6"
 
 arr_cmake_v=(${cmake_version//./ })
 cmake_version_major=(${arr_cmake_v[0]})

@@ -3,6 +3,7 @@
 
 #include "enhancedwebpage.h"
 #include "enhancedwebview.h"
+#include "gphelper.h"
 #include "cdpcommandmanager.h"
 
 EnhancedWebView::EnhancedWebView(QWidget *parent)
@@ -15,7 +16,8 @@ EnhancedWebView::EnhancedWebView(QWidget *parent)
 
 void EnhancedWebView::initialize()
 {
-    setPage(new EnhancedWebPage());
+    // Parent the page to the view so it is deleted before the web engine profile
+    setPage(new EnhancedWebPage(gpclient::helper::webProfile(), this));
     auto port = QProcessEnvironment::systemEnvironment().value(ENV_CDP_PORT);
     cdp->initialize("http://127.0.0.1:" + port + "/json");
 }

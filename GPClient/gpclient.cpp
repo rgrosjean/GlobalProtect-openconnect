@@ -360,6 +360,12 @@ void GPClient::gatewayLogin()
 {
     LOGI << "Performing gateway login...";
 
+    if (currentGateway().address().isEmpty()) {
+        LOGE << "No gateway selected (selected: " << settings::get(portal() + "_selectedGateway").toString() << "), cannot login.";
+        onGatewayFail("No gateway selected, please reconnect to the portal.");
+        return;
+    }
+
     GatewayAuthenticatorParams params = GatewayAuthenticatorParams::fromPortalConfigResponse(portalConfig);
     params.setClientos(settings::get("clientos", "Linux").toString());
 
@@ -382,7 +388,7 @@ void GPClient::gatewayLogin()
 
 void GPClient::onGatewaySuccess(const QString &authCookie)
 {
-    LOGI << "Gateway login succeeded, got the cookie " << authCookie;
+    LOGI << "Gateway login succeeded, got the cookie " << redact(authCookie);
 
     isQuickConnect = false;
     QList<QString> gatewayAddresses;
@@ -474,8 +480,9 @@ void GPClient::setCurrentGateway(const GPGateway gateway)
 {
     LOGI << "Updating the current gateway to " << gateway.name();
 
+    // Do not overwrite the portal input with the gateway address: the saved gateways
+    // and the selected gateway are keyed by the portal address.
     settings::save(portal() + "_selectedGateway", gateway.name());
-    ui->portalInput->setText(gateway.address());
     populateGatewayMenu();
 }
 

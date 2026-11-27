@@ -9,6 +9,8 @@
 #include <QtNetwork/QNetworkReply>
 
 #include "samlloginwindow.h"
+
+class QWebEngineProfile;
 #include "gpgateway.h"
 
 
@@ -28,10 +30,29 @@ namespace gpclient {
 
         void moveCenter(QWidget *widget);
 
+        // Client identity sent to the portal/gateway, aligned with the official client
+        // (see yuezk/GlobalProtect-openconnect 2.x, crates/gpapi/src/os_profile).
+        QString clientos();
+        QString clientVersion();
+        QString osVersion();
+        QString hostId();
+        QString userAgent();
+
+        // Describe a secret for logging without revealing it
+        QString redact(const QString &secret);
+
+        // Persistent web profile for the SAML/CAS login, so the identity provider
+        // (e.g. Microsoft) remembers the account between runs.
+        QWebEngineProfile* webProfile();
+
+        // Send a prelogin request advertising CAS support (Cloud Authentication Service)
+        // with the embedded browser. defaultBrowser is "-10" for the portal, "0" for a gateway.
+        QNetworkReply* createPreloginRequest(const QString &url, const QString &defaultBrowser, const QString &clientos);
+
         namespace settings {
 
             extern QSettings *_settings;
-            static const QStringList reservedKeys {"extraArgs", "clientos"};
+            static const QStringList reservedKeys {"extraArgs", "clientos", "os-version", "client-version", "host-id"};
 
             QVariant get(const QString &key, const QVariant &defaultValue = QVariant());
             QStringList get_all(const QString &key, const QVariant &defaultValue = QVariant());

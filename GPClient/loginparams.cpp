@@ -5,7 +5,11 @@
 
 using namespace gpclient::helper;
 
-LoginParams::LoginParams(const QString clientos)
+namespace {
+    const QString EMPTY_PORTAL_COOKIE = "empty";
+}
+
+LoginParams::LoginParams(const QString clientos) : clientos(clientos)
 {
     params.addQueryItem("prot", QUrl::toPercentEncoding("https:"));
     params.addQueryItem("server", "");
@@ -23,15 +27,16 @@ LoginParams::LoginParams(const QString clientos)
         params.addQueryItem("clientos", clientos);
     }
 
-    auto osVersion = settings::get("os-version", "").toString();
-    if (osVersion.isEmpty()) {
-        osVersion = QSysInfo::prettyProductName();
-    }
-    params.addQueryItem("os-version", QUrl::toPercentEncoding(osVersion));
+    params.addQueryItem("clientgpversion", QUrl::toPercentEncoding(clientVersion()));
+    params.addQueryItem("os-version", QUrl::toPercentEncoding(osVersion()));
+    params.addQueryItem("host-id", QUrl::toPercentEncoding(hostId()));
 
-    params.addQueryItem("portal-userauthcookie", "");
-    params.addQueryItem("portal-prelogonuserauthcookie", "");
+    // The official client sends "empty" rather than an empty string for missing
+    // portal cookies; Prisma Access portals answer 512 (Invalid Cookie) otherwise.
+    params.addQueryItem("portal-userauthcookie", EMPTY_PORTAL_COOKIE);
+    params.addQueryItem("portal-prelogonuserauthcookie", EMPTY_PORTAL_COOKIE);
     params.addQueryItem("prelogin-cookie", "");
+    params.addQueryItem("token", "");
     params.addQueryItem("ipv6-support", "yes");
 }
 
@@ -56,17 +61,40 @@ void LoginParams::setPassword(const QString password)
 
 void LoginParams::setUserAuthCookie(const QString cookie)
 {
-    updateQueryItem("portal-userauthcookie", cookie);
+    updateQueryItem("portal-userauthcookie", cookie.isEmpty() ? EMPTY_PORTAL_COOKIE : cookie);
+    if (!cookie.isEmpty()) {
+        useSamlPasswordIfEmpty();
+    }
 }
 
 void LoginParams::setPrelogonAuthCookie(const QString cookie)
 {
-    updateQueryItem("portal-prelogonuserauthcookie", cookie);
+    updateQueryItem("portal-prelogonuserauthcookie", cookie.isEmpty() ? EMPTY_PORTAL_COOKIE : cookie);
 }
 
 void LoginParams::setPreloginCookie(const QString cookie)
 {
     updateQueryItem("prelogin-cookie", cookie);
+    if (!cookie.isEmpty()) {
+        useSamlPasswordIfEmpty();
+    }
+}
+
+// The official Linux client sends "SAMLPASS" as the password for cookie-based
+// (SAML) logins; Windows/macOS clients leave it empty.
+void LoginParams::useSamlPasswordIfEmpty()
+{
+    if (clientos == "Linux" && params.queryItemValue("passwd").isEmpty()) {
+        updateQueryItem("passwd", "SAMLPASS");
+    }
+}
+
+void LoginParams::setToken(const QString token)
+{
+    updateQueryItem("token", token);
+    if (!token.isEmpty()) {
+        useSamlPasswordIfEmpty();
+    }
 }
 
 void LoginParams::setInputStr(const QString inputStr)
@@ -77,6 +105,21 @@ void LoginParams::setInputStr(const QString inputStr)
 QByteArray LoginParams::toUtf8() const
 {
     return params.toString().toUtf8();
+}
+
+QString LoginParams::toRedactedString() const
+{
+    static const QStringList secretKeys {
+        "passwd", "token", "prelogin-cookie", "portal-userauthcookie", "portal-prelogonuserauthcookie"
+    };
+
+    QUrlQuery redacted;
+    for (const auto &item : params.queryItems(QUrl::FullyEncoded)) {
+        const bool masked = secretKeys.contains(item.first)
+                && !item.second.isEmpty() && item.second != "empty" && item.second != "SAMLPASS";
+        redacted.addQueryItem(item.first, masked ? QString("<redacted, %1 chars>").arg(item.second.length()) : item.second);
+    }
+    return redacted.toString(QUrl::FullyEncoded);
 }
 
 void LoginParams::updateQueryItem(const QString key, const QString value)

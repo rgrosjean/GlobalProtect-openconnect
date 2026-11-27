@@ -17,7 +17,9 @@ qt6_add_dbus_interface(
 add_executable(gpclient
     cdpcommand.cpp
     cdpcommandmanager.cpp
+    enhancedwebpage.cpp
     enhancedwebview.cpp
+    gpcallbackhandler.cpp
     gatewayauthenticator.cpp
     gatewayauthenticatorparams.cpp
     gpgateway.cpp
@@ -49,6 +51,10 @@ add_3rdparty(
     SingleApplication
     GIT_REPOSITORY https://github.com/itay-grudev/SingleApplication.git
     GIT_TAG v3.5.2
+    # Qt >= 6.6 defaults to POSIX shared memory, which is not removed when the
+    # process dies, so a stale block makes every new instance exit silently.
+    # Force System V shared memory, which is cleaned up after a crash.
+    PATCH_COMMAND sed -i "s/QNativeIpcKey( d->blockServerName )/QNativeIpcKey( d->blockServerName, QNativeIpcKey::Type::SystemV )/" singleapplication.cpp
     CMAKE_ARGS
         -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
         -DCMAKE_CXX_FLAGS_RELEASE=${CMAKE_CXX_FLAGS_RELEASE}

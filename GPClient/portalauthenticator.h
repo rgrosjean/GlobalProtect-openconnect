@@ -53,7 +53,7 @@ private:
     void tryAutoLogin();
     void normalAuth();
     void samlAuth();
-    void fetchConfig(QString username, QString password, QString preloginCookie = "", QString userAuthCookie = "");
+    void fetchConfig(QString username, QString password, QString preloginCookie = "", QString userAuthCookie = "", QString token = "");
     void emitFail(const QString& msg = "");
 };
 
