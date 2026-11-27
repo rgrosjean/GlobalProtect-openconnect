@@ -51,4 +51,7 @@ struct GatewayChoice {
 // ConnectionState to the Gateway dropdown.
 GatewayChoice presentGateways(const QStringList &gatewayNames, const QString &currentGateway, ConnectionState state);
 
+// Qt resource path of the SVG icon drawn for a shield, used by the window and the tray.
+QString shieldResource(Shield shield);
+
 #endif // CONNECTIONVIEW_H

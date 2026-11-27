@@ -6,6 +6,7 @@
 #include <QtWidgets/QMainWindow>
 #include <QtWidgets/QSystemTrayIcon>
 #include <QtWidgets/QMenu>
+#include <QtWidgets/QToolButton>
 #include <QtWidgets/QPushButton>
 
 #include "connectionview.h"
@@ -39,6 +40,7 @@ public:
 
 private slots:
     void onSettingsButtonClicked();
+    void showAbout();
     void onSettingsAccepted();
 
     void on_connectButton_clicked();
@@ -77,7 +79,9 @@ private:
     QAction *quitAction;
 
     SettingsDialog *settingsDialog;
-    QPushButton *settingsButton;
+    QToolButton *moreButton;
+    QMenu *moreMenu;
+    QAction *resetMenuAction;
 
     ConnectionState state { ConnectionState::Disconnected };
     // When the current Tunnel came up; invalid while no Tunnel is up (including the
@@ -89,6 +93,7 @@ private:
     PortalConfigResponse portalConfig;
 
     void setupSettings();
+    void setupMenu();
 
     void initSystemTrayIcon();
     void initVpnStatus();

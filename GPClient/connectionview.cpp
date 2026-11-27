@@ -51,3 +51,16 @@ GatewayChoice presentGateways(const QStringList &gatewayNames, const QString &cu
     const bool enabled = names.size() > 1 && state == ConnectionState::Connected;
     return { names, int(names.indexOf(currentGateway)), enabled };
 }
+
+QString shieldResource(Shield shield)
+{
+    switch (shield) {
+    case Shield::Connected:
+        return ":/images/shield_connected.svg";
+    case Shield::InProgress:
+        return ":/images/shield_in_progress.svg";
+    case Shield::NotConnected:
+        break;
+    }
+    return ":/images/shield_not_connected.svg";
+}

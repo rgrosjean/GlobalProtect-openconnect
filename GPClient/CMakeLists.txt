@@ -32,7 +32,9 @@ add_executable(gpclient
     preloginresponse.cpp
     samlloginwindow.cpp
     gpclient.cpp
+    clientos.cpp
     connectionview.cpp
+    aboutinfo.cpp
     settingsdialog.cpp
     gpclient.ui
     standardloginwindow.ui
@@ -104,6 +106,7 @@ target_link_libraries(gpclient
     Qt6::WebEngineCore
     Qt6::WebEngineWidgets
     Qt6::DBus
+    Qt6::Svg
     QtSignals
     ${QTKEYCHAIN_LIBRARIES}
 )
